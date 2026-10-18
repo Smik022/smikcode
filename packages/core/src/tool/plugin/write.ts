@@ -13,6 +13,7 @@ import { Bom } from "@opencode/util/bom"
 import { Environment } from "../../environment/index.js"
 import { FileMutation } from "../../file-mutation.js"
 import { Formatter } from "../../formatter.js"
+import { Lsp } from "../../lsp.js"
 import { FileAccess } from "../../file-access.js"
 import { Permission } from "../../permission.js"
 import { fileDiff } from "./file-diff.js"
@@ -41,7 +42,6 @@ export const toModelContent = (output: Output) =>
 /** Deferred write UX integrations remain visible at the model-facing seam. */
 // TODO: Publish watcher/file-edit events after watcher integration exists.
 // TODO: Add snapshots / undo after design exists.
-// TODO: Add LSP notification and diagnostics after LSP runtime exists.
 
 export const Plugin = {
   id: "opencode.tool.write",
@@ -50,6 +50,7 @@ export const Plugin = {
     const fileMutation = yield* FileMutation.Service
     const environment = yield* Environment.Service
     const formatter = yield* Formatter.Service
+    const lsp = yield* Lsp.Service
     const permission = yield* Permission.Service
 
     yield* ctx.tool
@@ -89,9 +90,14 @@ export const Plugin = {
               if (yield* formatter.file(target.absolute)) {
                 yield* FileMutation.syncTextBom(environment.files, target.absolute, bom)
               }
-              return result
+              const written = yield* FileMutation.readText(environment.files, target.absolute)
+              const reports = yield* lsp.diagnostics(target.absolute, written.text)
+              return { result, problems: Lsp.format(target.resource, reports) }
             }).pipe(
-              Effect.map((output) => ({ output, content: toModelContent(output) })),
+              Effect.map((value) => ({
+                output: value.result,
+                content: [toModelContent(value.result), value.problems].filter(Boolean).join("\n\n"),
+              })),
               Effect.mapError((error) => new ToolFailure({ message: `Unable to write ${input.path}`, error })),
             ),
         }),

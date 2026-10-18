@@ -6,6 +6,7 @@ import { AppNodeBuilder } from "@opencode/core/effect/app-node-builder"
 import { LayerNode } from "@opencode/util/effect/layer-node"
 import { Environment } from "@opencode/core/environment/index"
 import { Formatter } from "@opencode/core/formatter"
+import { Lsp } from "@opencode/core/lsp"
 import { FileMutation } from "@opencode/core/file-mutation"
 import { Location } from "@opencode/core/location"
 import { FileAccess } from "@opencode/core/file-access"
@@ -45,6 +46,7 @@ const patchToolNode = makeLocationNode({
     FileMutation.node,
     Environment.node,
     Formatter.node,
+    Lsp.node,
     Location.node,
     Permission.node,
   ],

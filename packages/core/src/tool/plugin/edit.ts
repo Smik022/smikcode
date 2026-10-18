@@ -14,6 +14,7 @@ import { Effect, Schema } from "effect"
 import { Environment } from "../../environment/index.js"
 import { FileMutation } from "../../file-mutation.js"
 import { Formatter } from "../../formatter.js"
+import { Lsp } from "../../lsp.js"
 import { Location } from "../../location.js"
 import { FileAccess } from "../../file-access.js"
 import { Permission } from "../../permission.js"
@@ -202,7 +203,6 @@ const countBefore = (positions: number[], offset: number) => {
 /** Deferred edit behavior and UX integrations remain visible at the model-facing seam. */
 // TODO: Publish watcher/file-edit events after watcher integration exists.
 // TODO: Add snapshots / undo after design exists.
-// TODO: Add LSP notification and diagnostics after LSP runtime exists.
 
 export const Plugin = {
   id: "opencode.tool.edit",
@@ -211,6 +211,7 @@ export const Plugin = {
     const fileMutation = yield* FileMutation.Service
     const environment = yield* Environment.Service
     const formatter = yield* Formatter.Service
+    const lsp = yield* Lsp.Service
     const location = yield* Location.Service
     const permission = yield* Permission.Service
 
@@ -308,14 +309,30 @@ export const Plugin = {
                 ? yield* FileMutation.syncTextBom(environment.files, target.absolute, bom)
                 : (yield* FileMutation.readText(environment.files, target.absolute)).text
               return {
-                files: [fileDiff(result.resource, source, formatted)],
-                replacements,
-              } satisfies Output
+                output: {
+                  files: [fileDiff(result.resource, source, formatted)],
+                  replacements,
+                } satisfies Output,
+                file: target.absolute,
+                resource: target.resource,
+                text: formatted,
+              }
             }).pipe(
               fileMutation.withLock([FileAccess.resolvePath(location.directory, input.path)]),
-              Effect.map((output) => ({
+              // Ask the language servers after releasing the lock; they may take a few seconds.
+              Effect.flatMap((edited) =>
+                lsp
+                  .diagnostics(edited.file, edited.text)
+                  .pipe(Effect.map((reports) => ({ output: edited.output, problems: Lsp.format(edited.resource, reports) }))),
+              ),
+              Effect.map(({ output, problems }) => ({
                 output,
-                content: `Edited ${output.files[0]?.file} (${output.replacements} replacement${output.replacements === 1 ? "" : "s"})`,
+                content: [
+                  `Edited ${output.files[0]?.file} (${output.replacements} replacement${output.replacements === 1 ? "" : "s"})`,
+                  problems,
+                ]
+                  .filter(Boolean)
+                  .join("\n\n"),
                 metadata: { files: output.files },
               })),
               Effect.mapError((error) =>

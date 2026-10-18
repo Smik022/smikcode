@@ -48,6 +48,29 @@ The binary is written to `packages/cli/dist/cli-<os>-<arch>/bin/`.
 
 For compatibility, `opencode.json`, `.opencode/` and `OPENCODE_*` variables still work, but SmikCode's own files and variables take priority.
 
+### Language server diagnostics
+
+After the agent edits or writes a file, SmikCode sends the new contents to that language's server and shows the agent any errors, so it can fix its own mistakes. These servers are used automatically if they're installed and on your `PATH`:
+
+| Language | Server |
+|---|---|
+| TypeScript / JavaScript | `typescript-language-server` |
+| Python | `basedpyright-langserver` or `pyright-langserver` |
+| Go | `gopls` |
+| Rust | `rust-analyzer` |
+| C / C++ | `clangd` |
+
+Turn this off with `"lsp": false`, or add and override servers:
+
+```jsonc
+{
+  "lsp": {
+    "clangd": { "disabled": true },
+    "lua": { "command": ["lua-language-server"], "extensions": [".lua"] }
+  }
+}
+```
+
 ## Updating
 
 SmikCode doesn't have a release feed yet, so it never updates itself. To update, pull and rebuild:

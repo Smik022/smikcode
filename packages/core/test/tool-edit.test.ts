@@ -7,6 +7,7 @@ import { LayerNode } from "@opencode/util/effect/layer-node"
 import { Environment } from "@opencode/core/environment/index"
 import { FileMutation } from "@opencode/core/file-mutation"
 import { Formatter } from "@opencode/core/formatter"
+import { Lsp } from "@opencode/core/lsp"
 import { Location } from "@opencode/core/location"
 import { FileAccess } from "@opencode/core/file-access"
 import { Permission } from "@opencode/core/permission"
@@ -31,6 +32,7 @@ const editToolNode = makeLocationNode({
     FileMutation.node,
     Environment.node,
     Formatter.node,
+    Lsp.node,
     Location.node,
     Permission.node,
   ],

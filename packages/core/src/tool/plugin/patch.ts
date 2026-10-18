@@ -7,8 +7,10 @@ import { FileDiff } from "@opencode/schema/file-diff"
 import { Effect, Result, Schema } from "effect"
 import { Bom } from "@opencode/util/bom"
 import { Environment } from "../../environment/index.js"
+import path from "path"
 import { Formatter } from "../../formatter.js"
 import { FileMutation } from "../../file-mutation.js"
+import { Lsp } from "../../lsp.js"
 import { Location } from "../../location.js"
 import { FileAccess } from "../../file-access.js"
 import { Patch } from "@opencode/util/patch"
@@ -71,6 +73,7 @@ export const Plugin = {
     const access = yield* FileAccess.Service
     const fileMutation = yield* FileMutation.Service
     const formatter = yield* Formatter.Service
+    const lsp = yield* Lsp.Service
     const location = yield* Location.Service
     const permission = yield* Permission.Service
 
@@ -276,12 +279,23 @@ export const Plugin = {
                 const target = change.type === "update" && change.moveTarget ? change.moveTarget : change.target
                 return patchFile(change, formatted.get(target.absolute))
               })
-              return { applied, files }
+              return { output: { applied, files }, formatted }
             }).pipe(
               fileMutation.withLock(lockTargets),
-              Effect.map((output) => ({
+              // Ask the language servers after releasing the lock; they may take a few seconds.
+              Effect.flatMap((patched) =>
+                Effect.forEach(
+                  [...patched.formatted],
+                  ([target, text]) =>
+                    lsp
+                      .diagnostics(target, text)
+                      .pipe(Effect.map((reports) => Lsp.format(path.relative(location.directory, target), reports))),
+                  { concurrency: "unbounded" },
+                ).pipe(Effect.map((problems) => ({ output: patched.output, problems: problems.filter(Boolean) }))),
+              ),
+              Effect.map(({ output, problems }) => ({
                 output,
-                content: toModelContent(output),
+                content: [toModelContent(output), ...problems].join("\n\n"),
                 metadata: { files: output.files },
               })),
               Effect.mapError((error) =>

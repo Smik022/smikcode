@@ -18,6 +18,7 @@ import { ConfigAgentPlugin } from "../config/plugin/agent.js"
 import { ConfigCommandPlugin } from "../config/plugin/command.js"
 import { ConfigCompactionPlugin } from "../config/plugin/compaction.js"
 import { ConfigFormatterPlugin } from "../config/plugin/formatter.js"
+import { ConfigLspPlugin } from "../config/plugin/lsp.js"
 import { ConfigImagePlugin } from "../config/plugin/image.js"
 import { ConfigInstructionPlugin } from "../config/plugin/instruction.js"
 import { ConfigLocationWatcherPlugin } from "../config/plugin/location-watcher.js"
@@ -39,6 +40,7 @@ import { Environment } from "../environment/index.js"
 import { FileAccess } from "../file-access.js"
 import { FileMutation } from "../file-mutation.js"
 import { Formatter } from "../formatter.js"
+import { Lsp } from "../lsp.js"
 import { Form } from "../form.js"
 import { FileSystem } from "../filesystem.js"
 import { LocationWatcherPolicy } from "../filesystem/location-watcher-policy.js"
@@ -118,6 +120,7 @@ const services = [
   FileAccess.Service,
   FileMutation.Service,
   Formatter.Service,
+  Lsp.Service,
   LocationWatcherPolicy.Service,
   FileSystem.Service,
   FSUtil.Service,
@@ -172,6 +175,7 @@ export const requirements = LayerNode.group([
   FileAccess.node,
   FileMutation.node,
   Formatter.node,
+  Lsp.node,
   LocationWatcherPolicy.node,
   FileSystem.node,
   FSUtil.node,
@@ -257,6 +261,7 @@ const post = [
   ConfigCommandPlugin.Plugin,
   ConfigCompactionPlugin.Plugin,
   ConfigFormatterPlugin.Plugin,
+  ConfigLspPlugin.Plugin,
   ConfigImagePlugin.Plugin,
   ConfigLocationWatcherPlugin.Plugin,
   ConfigShellPlugin.Plugin,

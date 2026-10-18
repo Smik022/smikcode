@@ -4,10 +4,9 @@
   "version": "2.0.32",
   "type": "module",
   "license": "MIT",
-  "homepage": "https://opencode.ai",
+  "homepage": "https://github.com/Smik022/smikcode",
   "author": {
-    "name": "OpenCode",
-    "email": "hello@opencode.ai"
+    "name": "SmikCode"
   },
   "scripts": {
     "typecheck": "tsc -b",

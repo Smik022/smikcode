@@ -4,6 +4,7 @@ import { readFile, stat, writeFile } from "node:fs/promises"
 import { Effect, Option } from "effect"
 import { applyEdits, modify } from "jsonc-parser"
 import { Global } from "@opencode/util/global"
+import { Brand } from "@opencode/util/brand"
 import { Commands } from "../../commands"
 import { Runtime } from "../../../framework/runtime"
 
@@ -38,7 +39,10 @@ export default Runtime.handler(
 )
 
 export async function resolveConfigPath(directory: string) {
+  // SmikCode's own files come first so new servers land there; upstream opencode files still work.
   const candidates = [
+    ...Brand.configFiles.map((name) => path.join(directory, name)),
+    ...Brand.configFiles.map((name) => path.join(directory, Brand.configDirectory, name)),
     path.join(directory, "opencode.json"),
     path.join(directory, "opencode.jsonc"),
     path.join(directory, ".opencode", "opencode.json"),

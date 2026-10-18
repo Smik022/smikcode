@@ -1,15 +1,24 @@
 import path from "node:path"
 import { stat } from "node:fs/promises"
+import { Brand } from "@opencode/util/brand"
+
+// Upstream's .opencode first so SmikCode's own directory wins where later entries override.
+const names = [".opencode", Brand.configDirectory]
 
 export function configDirectories(config: string, cwd: string) {
-  return [...new Set([config, ...ancestors(cwd).map((directory) => path.join(directory, ".opencode"))])]
+  return [
+    ...new Set([
+      config,
+      ...ancestors(cwd).flatMap((directory) => names.map((name) => path.join(directory, name))),
+    ]),
+  ]
 }
 
 export function projectConfigDirectories(project: string, cwd: string) {
   const directories = ancestors(cwd)
   return directories
     .slice(directories.indexOf(path.resolve(project)))
-    .map((directory) => path.join(directory, ".opencode"))
+    .flatMap((directory) => names.map((name) => path.join(directory, name)))
 }
 
 export async function localProjectDirectory(cwd: string) {

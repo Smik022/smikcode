@@ -1,6 +1,7 @@
 import { Global } from "@opencode/util/global"
 import { AppProcess } from "@opencode/util/process"
 import { EffectFlock } from "@opencode/util/effect-flock"
+import { Brand } from "@opencode/util/brand"
 import { OPENCODE_ARTIFACT, OPENCODE_CHANNEL, OPENCODE_LOCAL, OPENCODE_VERSION } from "../version"
 import { Context, Duration, Effect, FileSystem, Layer, Option, Ref, Schema } from "effect"
 import { ChildProcess } from "effect/process"
@@ -118,6 +119,11 @@ export interface Interface {
 }
 
 export class Service extends Context.Service<Service, Interface>()("@opencode/cli/Updater") {}
+
+// SmikCode has no release feed of its own yet; the upstream feed and installers
+// below would replace it with opencode. Flip this once SmikCode publishes releases.
+export const RELEASE_FEED = false
+export const UPDATE_HINT = `${Brand.name} updates from its git repository: run \`git pull\` in your ${Brand.name} checkout, then rebuild.`
 
 export function decodePolicy(text: string): Policy | undefined {
   // The CLI only projects this host-level preference instead of initializing
@@ -531,6 +537,11 @@ const make = Effect.gen(function* () {
   })
 
   const inspect = Effect.fnUntraced(function* () {
+    // Upstream's release feed would install opencode over SmikCode, so never check it.
+    if (!RELEASE_FEED) {
+      yield* Effect.logInfo("update check skipped", { reason: "no-release-feed", version: OPENCODE_VERSION })
+      return undefined
+    }
     if (OPENCODE_LOCAL || ["1", "true"].includes(process.env.OPENCODE_DISABLE_AUTOUPDATE?.toLowerCase() ?? "")) {
       yield* Effect.logInfo("update check skipped", {
         reason: OPENCODE_LOCAL ? "local-install" : "disabled",
@@ -583,6 +594,7 @@ const make = Effect.gen(function* () {
   })
 
   const check = Effect.fn("cli.updater.check")(function* () {
+    if (!RELEASE_FEED) return { type: "unavailable" as const, message: UPDATE_HINT }
     if (OPENCODE_LOCAL)
       return {
         type: "unavailable" as const,

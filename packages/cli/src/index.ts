@@ -1,5 +1,7 @@
 #!/usr/bin/env bun
 
+// Must stay first: aliases SMIKCODE_* env vars before other modules read them.
+import "./env-alias"
 import { ensurePluginRuntime } from "@opencode/plugin/runtime"
 import { NodeRuntime, NodeServices } from "@effect/platform-node"
 import { Cause, Effect } from "effect"

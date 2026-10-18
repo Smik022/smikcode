@@ -259,7 +259,7 @@ function serverLogRoots(path: Path.Path) {
   const xdgData = process.env.XDG_DATA_HOME || path.join(homedir(), ".local", "share")
 
   return [
-    ...new Set([path.join(xdgData, "opencode", "log"), path.join(app.getPath("userData"), "opencode", "log")]),
+    ...new Set([path.join(xdgData, "smikcode", "log"), path.join(app.getPath("userData"), "smikcode", "log")]),
   ]
 }
 

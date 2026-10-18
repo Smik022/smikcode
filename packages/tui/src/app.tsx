@@ -1,4 +1,5 @@
 import { existsSync } from "fs"
+import { Brand } from "@opencode/util/brand"
 import path from "path"
 import { render, useRenderer, useTerminalDimensions } from "@opentui/solid"
 import { registerOpencodeSpinner } from "./component/register-spinner"
@@ -607,14 +608,14 @@ function App() {
     if (!terminalTitleEnabled()) return
 
     if (route.data.type === "home") {
-      renderer.setTerminalTitle("OpenCode")
+      renderer.setTerminalTitle(Brand.name)
       return
     }
 
     if (route.data.type === "session") {
       const title = session?.title
       if (!title || isFallbackTitle(title)) {
-        renderer.setTerminalTitle("OpenCode")
+        renderer.setTerminalTitle(Brand.name)
         return
       }
 
@@ -1020,7 +1021,7 @@ function App() {
         ? [
             {
               name: "opencode.update",
-              title: "Update OpenCode",
+              title: `Update ${Brand.name}`,
               slash: { name: "update" },
               run: () => updater.open?.("manual"),
               category: "System",
@@ -1126,7 +1127,7 @@ function App() {
         name: "docs.open",
         title: "Open docs",
         run: () => {
-          openUrl("https://opencode.ai/docs").catch(() => {})
+          openUrl(Brand.repository).catch(() => {})
           dialog.clear()
         },
         category: "System",

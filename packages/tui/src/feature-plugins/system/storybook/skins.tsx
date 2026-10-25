@@ -20,9 +20,9 @@ const sessions = [
   { id: "ses_logo", title: "Pixel wordmark" },
 ]
 const tasks: SessionTask[] = [
-  { id: "1", content: "Add skin tokens to the theme schema", status: "completed" },
-  { id: "2", content: "Dock the sidebar per skin", status: "in_progress" },
-  { id: "3", content: "Record the story", status: "pending" },
+  { content: "Add skin tokens to the theme schema", status: "completed" },
+  { content: "Dock the sidebar per skin", status: "in_progress" },
+  { content: "Record the story", status: "pending" },
 ]
 
 type Screen = "home" | "session"

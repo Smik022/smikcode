@@ -5,9 +5,8 @@ import { useData } from "../../context/data"
 import { useRoute } from "../../context/route"
 import { useTheme } from "../../context/theme"
 
-/** One entry of a session's task checklist. */
+/** One entry of a session's task checklist, shaped like the todo tool's `latestTodos()` entries. */
 export type SessionTask = {
-  id: string
   content: string
   status: "pending" | "in_progress" | "completed" | "cancelled"
 }
@@ -15,9 +14,9 @@ export type SessionTask = {
 /**
  * SLOT(todo-tool): the session's task checklist.
  *
- * The todo/plan tool and its data are being added separately. Until that data reaches the TUI this
- * returns no tasks, so the "tasks" sidebar section stays hidden. Wire the tool's session data in here;
- * the section renders as soon as this returns at least one task.
+ * The todo tool is being added separately. Until its data reaches the TUI this returns no tasks, so the
+ * "tasks" sidebar section stays hidden. Wire it to `latestTodos(messages)` from `util/todos.ts`; the
+ * section renders as soon as this returns at least one task.
  */
 export function useSessionTasks(_sessionID: Accessor<string>): Accessor<readonly SessionTask[]> {
   return () => []

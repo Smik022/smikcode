@@ -1,8 +1,7 @@
 import { For, Show } from "solid-js"
 
-/** One entry of a session's task list, as the todo tool reports it. */
+/** One entry of a session's task list, shaped like the todo tool's `latestTodos()` entries. */
 export type SkinTask = {
-  id: string
   content: string
   status: "pending" | "in_progress" | "completed" | "cancelled"
 }

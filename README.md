@@ -71,6 +71,23 @@ Turn this off with `"lsp": false`, or add and override servers:
 }
 ```
 
+## Exporting a session
+
+opencode's online sharing is switched off, so SmikCode exports sessions to files you can keep or send:
+
+- In the terminal UI, run `/export` and choose **Markdown**, **HTML page** or **JSON**.
+- From the command line:
+
+```bash
+smikcode session export <session-id> --format html --output session.html
+```
+
+The HTML page is fully self-contained, with no scripts and no network requests, so it opens anywhere. JSON exports can be re-imported with `smikcode session import`. Add `--thinking` to include the model's reasoning.
+
+## Trimming old tool output
+
+In long sessions, SmikCode replaces large tool output from older turns with a short note before each model call, so you hit full compaction less often. Your stored session is never changed. Turn it off with `"compaction": { "prune": false }`.
+
 ## Updating
 
 SmikCode doesn't have a release feed yet, so it never updates itself. To update, pull and rebuild:

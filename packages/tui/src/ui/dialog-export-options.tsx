@@ -5,7 +5,10 @@ import { DialogHeader, DialogLayout, type DialogContext } from "./dialog"
 import { createStore } from "solid-js/store"
 import { For, Show } from "solid-js"
 
-export type ExportFormat = "markdown" | "json"
+export type ExportFormat = "markdown" | "html" | "json"
+
+const formats: readonly ExportFormat[] = ["markdown", "html", "json"]
+const formatLabels: Record<ExportFormat, string> = { markdown: "Markdown", html: "HTML page", json: "JSON" }
 
 export type DialogExportOptionsProps = {
   defaultThinking: boolean
@@ -43,7 +46,7 @@ export function DialogExportOptions(props: DialogExportOptionsProps) {
     })
 
   const activate = () => {
-    if (store.active === "markdown" || store.active === "json") {
+    if (store.active === "markdown" || store.active === "html" || store.active === "json") {
       setStore("format", store.active)
       return
     }
@@ -62,7 +65,7 @@ export function DialogExportOptions(props: DialogExportOptionsProps) {
         group: "Dialog",
         run: () => {
           const options: Active[] =
-            store.format === "markdown" ? ["markdown", "json", "thinking", "tools"] : ["markdown", "json", "sanitize"]
+            store.format === "json" ? [...formats, "sanitize"] : [...formats, "thinking", "tools"]
           const order: Active[] = newDesigns() ? options : [...options, "copy", "export"]
           setStore("active", order[(order.indexOf(store.active) + 1) % order.length])
         },
@@ -130,7 +133,7 @@ export function DialogExportOptions(props: DialogExportOptionsProps) {
         <box flexDirection="row" gap={1}>
           <text fg={theme.text.base}>Export as:</text>
           <box flexDirection="row" gap={1}>
-            <For each={["markdown", "json"] as const}>
+            <For each={formats}>
               {(format) => (
                 <box
                   paddingLeft={1}
@@ -153,14 +156,14 @@ export function DialogExportOptions(props: DialogExportOptionsProps) {
                           : theme.text.formfield.base
                     }
                   >
-                    {store.format === format ? "◉" : "○"} {format === "markdown" ? "Markdown" : "JSON"}
+                    {store.format === format ? "◉" : "○"} {formatLabels[format]}
                   </text>
                 </box>
               )}
             </For>
           </box>
         </box>
-        <Show when={store.format === "markdown"}>
+        <Show when={store.format !== "json"}>
           <box
             flexDirection="row"
             gap={1}

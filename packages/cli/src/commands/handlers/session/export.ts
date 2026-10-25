@@ -1,6 +1,7 @@
 import { autocomplete, cancel, intro, isCancel, log, outro } from "@clack/prompts"
 import { OpenCode } from "@opencode/client"
 import { Service } from "@opencode/client/effect/service"
+import { formatSessionHtml, formatSessionMarkdown } from "@opencode/tui/util/session-export"
 import { Effect, Option } from "effect"
 import { EOL } from "node:os"
 import { Commands } from "../../commands"
@@ -12,6 +13,9 @@ export default Runtime.handler(
   Commands.commands.session.commands.export,
   Effect.fn("cli.session.export")((input) =>
     Effect.gen(function* () {
+      const format = input.format
+      if (format !== "json" && format !== "markdown" && format !== "html")
+        return yield* Effect.fail(new Error(`Unknown export format "${format}". Use json, markdown or html.`))
       const requested = Option.getOrUndefined(input.session)
       if (!requested && !process.stdin.isTTY) {
         yield* Effect.fail(new Error("Pass a session ID when running without an interactive terminal"))
@@ -71,10 +75,23 @@ export default Runtime.handler(
           })
       if (!sessionID) return
       const data = yield* Effect.tryPromise({
-        try: () => client.session.export({ sessionID, sanitize: input.sanitize }),
+        try: () => client.session.export({ sessionID, sanitize: format === "json" ? input.sanitize : undefined }),
         catch: (cause) => cause,
       })
-      process.stdout.write(JSON.stringify(data, null, 2) + EOL)
+      const options = { thinking: input.thinking, tools: true }
+      const content =
+        format === "markdown"
+          ? formatSessionMarkdown(data.info, data.messages, options)
+          : format === "html"
+            ? formatSessionHtml(data.info, data.messages, options)
+            : JSON.stringify(data, null, 2) + EOL
+      const output = Option.getOrUndefined(input.output)
+      if (!output) {
+        process.stdout.write(content)
+        return
+      }
+      yield* Effect.tryPromise({ try: () => Bun.write(output, content), catch: (cause) => cause })
+      process.stderr.write(`Exported ${sessionID} to ${output}` + EOL)
     }).pipe(
       Effect.catch((error) =>
         Effect.sync(() => {

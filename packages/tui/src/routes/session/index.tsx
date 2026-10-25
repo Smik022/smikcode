@@ -40,7 +40,6 @@ import type {
   SessionMessageAssistantText,
   SessionMessageAssistantTool,
   SessionMessageUser,
-  SessionInfo,
   ModelInfo,
 } from "@opencode/client"
 import { useLocal } from "../../context/local"
@@ -86,6 +85,7 @@ import { FormPrompt } from "./form"
 import { DialogExportOptions } from "../../ui/dialog-export-options"
 import { DialogExportResult } from "../../ui/dialog-export-result"
 import { parseTodos } from "../../util/todos"
+import { formatSessionHtml, formatSessionMarkdown } from "../../util/session-export"
 import { sessionEpilogue } from "../../util/presentation"
 import { useConfig, useNewDesigns } from "../../config"
 import { useClipboard } from "../../context/clipboard"
@@ -115,7 +115,6 @@ import { switchLabel } from "../../util/model"
 import { findMessageBoundary, messageNavigationSlack } from "./message-navigation"
 import { stringWidth } from "../../util/string-width"
 import { useArgs } from "../../context/args"
-import { withTimestampedFallback } from "@opencode/util/session-title-fallback"
 import { useSessionTabs, type ScrollAnchor } from "../../context/session-tabs"
 import { createSingleFlight } from "../../util/single-flight"
 import { createDelayedPresence } from "../../util/delayed-presence"
@@ -1197,7 +1196,7 @@ export function Session(props: {
           const sessionData = session()
           if (!sessionData) return
           const transcript = await client.api.session.export({ sessionID: sessionData.id })
-          const content = formatSessionTranscript(transcript.info, transcript.messages, true)
+          const content = formatSessionMarkdown(transcript.info, transcript.messages, { thinking: true, tools: true })
           await clipboard.write(content)
           toast.show({ message: "Session transcript copied to clipboard!", variant: "success" })
         } catch {
@@ -1226,10 +1225,13 @@ export function Session(props: {
             sessionID: sessionData.id,
             sanitize: options.format === "json" ? options.sanitize : undefined,
           })
+          const exportOptions = { thinking: options.thinking, tools: options.tools }
           const content =
             options.format === "markdown"
-              ? formatSessionTranscript(transcript.info, transcript.messages, options.thinking, options.tools)
-              : JSON.stringify(transcript, null, 2) + EOL
+              ? formatSessionMarkdown(transcript.info, transcript.messages, exportOptions)
+              : options.format === "html"
+                ? formatSessionHtml(transcript.info, transcript.messages, exportOptions)
+                : JSON.stringify(transcript, null, 2) + EOL
 
           if (options.action === "copy") {
             await clipboard.write(content)
@@ -1240,7 +1242,7 @@ export function Session(props: {
 
           const filepath = path.join(
             tmpdir(),
-            `session-${crypto.randomUUID()}.${options.format === "markdown" ? "md" : "json"}`,
+            `session-${crypto.randomUUID()}.${options.format === "markdown" ? "md" : options.format}`,
           )
           await writeExport(filepath, content)
           await DialogExportResult.show(dialog, filepath)
@@ -3586,38 +3588,6 @@ function stringValue(value: unknown) {
 
 function recordValue(value: unknown): Record<string, unknown> | undefined {
   return isRecord(value) ? value : undefined
-}
-
-function formatSessionTranscript(
-  session: SessionInfo,
-  messages: SessionMessageInfo[],
-  thinking: boolean,
-  tools = true,
-) {
-  const body = messages.flatMap((message) => {
-    if (message.type === "user") return [`## User\n\n${message.text}`]
-    if (message.type === "shell")
-      return [`## Shell\n\n\`\`\`\n$ ${message.command}\n${message.output?.output ?? ""}\n\`\`\``]
-    if (message.type !== "assistant") return []
-    const content = message.content.flatMap((item) => {
-      if (item.type === "text") return [item.text]
-      if (item.type === "reasoning") return thinking ? [`_Thinking:_\n\n${item.text}`] : []
-      if (!tools) return []
-      const input = typeof item.state.input === "string" ? item.state.input : JSON.stringify(item.state.input, null, 2)
-      const output =
-        item.state.status === "error"
-          ? item.state.error.message
-          : item.state.status === "streaming"
-            ? ""
-            : toolDisplayContent(item.state)
-                .flatMap((entry) => (entry.type === "text" ? [entry.text] : [entry.name ?? entry.uri]))
-                .join("\n")
-      return [`**Tool: ${item.name}**\n\n**Input:**\n\`\`\`json\n${input}\n\`\`\`\n\n${output}`]
-    })
-    if (content.length === 0) return []
-    return [`## Assistant\n\n${content.join("\n\n")}`]
-  })
-  return `# ${withTimestampedFallback(session)}\n\n**Session ID:** ${session.id}\n**Created:** ${new Date(session.time.created).toLocaleString()}\n**Updated:** ${new Date(session.time.updated).toLocaleString()}\n\n---\n\n${body.join("\n\n---\n\n")}\n`
 }
 
 export function parseApplyPatchFiles(value: unknown) {

@@ -443,15 +443,28 @@ const Root = Spec.make(typeof OPENCODE_CLI_NAME === "string" ? OPENCODE_CLI_NAME
           },
         }),
         Spec.make("export", {
-          description: "Export session data as JSON",
+          description: "Export a session as JSON, Markdown or a standalone HTML page",
           params: {
             ...ServerParams,
             session: Argument.String("session").pipe(
               Argument.withDescription("Session ID to export"),
               Argument.optional,
             ),
+            format: Flag.String("format").pipe(
+              Flag.withDescription("Output format: json (re-importable), markdown or html"),
+              Flag.withDefault("json"),
+            ),
+            output: Flag.String("output").pipe(
+              Flag.withAlias("o"),
+              Flag.withDescription("Write to this file instead of standard output"),
+              Flag.optional,
+            ),
+            thinking: Flag.Boolean("thinking").pipe(
+              Flag.withDescription("Include the model's thinking in markdown and html exports"),
+              Flag.withDefault(false),
+            ),
             sanitize: Flag.Boolean("sanitize").pipe(
-              Flag.withDescription("Redact sensitive transcript and file data"),
+              Flag.withDescription("Redact sensitive transcript and file data (json only)"),
               Flag.withDefault(false),
             ),
           },

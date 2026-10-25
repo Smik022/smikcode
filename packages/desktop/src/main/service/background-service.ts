@@ -1,4 +1,5 @@
 import { app } from "electron"
+import { APP_DIRECTORY } from "../brand"
 import { Context, Effect, FileSystem, Layer, Path } from "effect"
 import { BackgroundServiceState } from "./background-service-state"
 import { cleanStages } from "./cli-stages"
@@ -45,7 +46,7 @@ const connect = Effect.fn("BackgroundService.connect")(function* (mode: "initial
     client.Service.ensure({
       file:
         isolated && process.env.OPENCODE_DESKTOP_SERVER_CHANNEL === "local"
-          ? path.join(app.getPath("userData"), "opencode", "service-local.json")
+          ? path.join(app.getPath("userData"), APP_DIRECTORY, "service-local.json")
           : undefined,
       version,
       // A fixed port makes a second contender fail to bind and back off; port 0 never collides, so two

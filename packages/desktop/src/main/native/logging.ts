@@ -1,5 +1,6 @@
 export * as DesktopLogging from "./logging"
 
+import { APP_DIRECTORY } from "../brand"
 import log from "electron-log/main.js"
 import { app, crashReporter, netLog, shell } from "electron"
 import { Context, Effect, FileSystem, Layer, Logger, Option, Path, References, Stream } from "effect"
@@ -152,7 +153,7 @@ function exportDebugLogsEffect(fs: FileSystem.FileSystem, path: Path.Path) {
       )
     }
 
-    const output = path.join(app.getPath("downloads"), `opencode-debug-${stamp()}.zip`)
+    const output = path.join(app.getPath("downloads"), `${APP_DIRECTORY}-debug-${stamp()}.zip`)
 
     return yield* Effect.gen(function* () {
       yield* Effect.logInfo("exporting debug logs", { output })
@@ -259,7 +260,7 @@ function serverLogRoots(path: Path.Path) {
   const xdgData = process.env.XDG_DATA_HOME || path.join(homedir(), ".local", "share")
 
   return [
-    ...new Set([path.join(xdgData, "smikcode", "log"), path.join(app.getPath("userData"), "smikcode", "log")]),
+    ...new Set([path.join(xdgData, APP_DIRECTORY, "log"), path.join(app.getPath("userData"), APP_DIRECTORY, "log")]),
   ]
 }
 

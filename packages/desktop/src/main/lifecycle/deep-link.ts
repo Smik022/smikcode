@@ -1,4 +1,4 @@
-import { PROTOCOL } from "../protocol"
+import { PROTOCOL } from "../brand"
 
 export function consoleReturnWindow(value: string) {
   try {

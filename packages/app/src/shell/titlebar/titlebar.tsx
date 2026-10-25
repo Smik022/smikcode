@@ -1,3 +1,4 @@
+import { Links } from "@/runtime/links"
 import { createEffect, createMemo, createResource, Match, Show, Switch, untrack } from "solid-js"
 import { createStore, unwrap } from "solid-js/store"
 import { Dynamic, Portal } from "solid-js/web"
@@ -665,7 +666,7 @@ export function Titlebar(props: { verticalTabs?: { mount?: HTMLElement } }) {
                                 class="flex h-7 shrink-0 items-center gap-2 rounded-[6px] px-2 text-[13px] leading-4 text-v2-text-text-faint hover:bg-v2-background-bg-layer-02 focus-visible:outline-none focus-visible:bg-v2-background-bg-layer-02"
                                 onClick={() => {
                                   setMobileTabs("open", false)
-                                  platform.openExternal("https://opencode.ai/desktop-feedback")
+                                  platform.openExternal(Links.issues)
                                 }}
                               >
                                 <Icon name="help" size="small" />

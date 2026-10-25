@@ -13,7 +13,7 @@ import { marks } from "./marks"
 import { initializeFirstLaunchOnboarding } from "./onboarding"
 import { Shutdown } from "./shutdown"
 import { consoleReturnWindow } from "./deep-link"
-import { PROTOCOL } from "../protocol"
+import { PROTOCOL } from "../brand"
 
 export interface Interface {
   readonly relaunch: () => void

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <defs>
+    <linearGradient id="smik" x1="7" y1="5" x2="25" y2="26" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ff3fb4" />
+      <stop offset="1" stop-color="#22e4f0" />
+    </linearGradient>
+  </defs>
+  <rect width="32" height="32" rx="7" fill="#0a0f24" />
+  <path d="M10 5h3v3h-3zM13 5h3v3h-3zM16 5h3v3h-3zM19 5h3v3h-3zM22 5h3v3h-3zM7 8h3v3h-3zM10 8h3v3h-3zM7 11h3v3h-3zM10 11h3v3h-3zM10 14h3v3h-3zM13 14h3v3h-3zM16 14h3v3h-3zM19 14h3v3h-3zM19 17h3v3h-3zM22 17h3v3h-3zM19 20h3v3h-3zM22 20h3v3h-3zM7 23h3v3h-3zM10 23h3v3h-3zM13 23h3v3h-3zM16 23h3v3h-3zM19 23h3v3h-3z" fill="url(#smik)" shape-rendering="crispEdges" />
+</svg>

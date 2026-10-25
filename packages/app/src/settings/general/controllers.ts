@@ -1,6 +1,7 @@
 import { createMemo, createResource, onMount, type Accessor } from "solid-js"
 import type { ColorScheme } from "@opencode/ui/theme/context"
 import { useTheme } from "@opencode/ui/theme/context"
+import { SKIN_THEME_IDS } from "@opencode/ui/theme/skin"
 import {
   monoDefault,
   monoFontFamily,
@@ -77,6 +78,8 @@ export function createAppearanceSettingsController() {
   const settings = useSettings()
   const theme = useTheme()
   const themes = createMemo(() => theme.ids().map((id) => ({ id, name: theme.name(id) })))
+  const skinIDs: readonly string[] = SKIN_THEME_IDS
+  const skins = createMemo(() => themes().filter((option) => skinIDs.includes(option.id)))
 
   onMount(() => void theme.loadThemes())
 
@@ -88,6 +91,18 @@ export function createAppearanceSettingsController() {
     theme: {
       options: themes,
       current: createMemo(() => themes().find((option) => option.id === theme.themeId())),
+      select: (option: { id: string } | null) => option && theme.setTheme(option.id),
+    },
+    // A skin is a theme, so choosing one also changes the theme select and persists through the theme id.
+    skin: {
+      options: skins,
+      current: createMemo(() => skins().find((option) => option.id === theme.themeId())),
+      highlight: (option: { id: string } | undefined) => {
+        if (!option) return
+        theme.previewTheme(option.id)
+
+        return () => theme.cancelPreview()
+      },
       select: (option: { id: string } | null) => option && theme.setTheme(option.id),
     },
     fonts: {

@@ -85,6 +85,7 @@ export const clientSettings: Entry<SettingsRootTab>[] = [
     target: "settings-color-scheme",
     keywords: "dark mode light mode system",
   },
+  { tab: "appearance", label: "settings.appearance.row.skin.title", target: "settings-skin", keywords: "theme layout" },
   { tab: "appearance", label: "settings.general.row.theme.title", target: "settings-theme" },
   {
     tab: "appearance",

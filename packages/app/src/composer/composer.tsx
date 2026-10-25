@@ -32,6 +32,7 @@ export function Composer(props: {
         readOnly={props.readOnly}
         class={props.class}
         modelControlsVisible={!props.model.model.loading}
+        frameModel={props.model.model.selection.current()?.name}
         attachKeybind={command.keybindParts("file.attach")}
         attachShortcut={command.keybind("file.attach")}
         alternateKeybind={[formatKeybind("mod", language.t), "↵"]}

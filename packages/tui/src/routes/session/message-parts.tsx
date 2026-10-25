@@ -1,4 +1,4 @@
-import { createMemo, createSignal, Match, Show, Switch } from "solid-js"
+import { children, createMemo, createSignal, Match, Show, Switch } from "solid-js"
 import { RGBA, TextAttributes, type MouseEvent } from "@opentui/core"
 import type { JSX } from "@opentui/solid"
 import type {
@@ -6,6 +6,7 @@ import type {
   SessionMessageAssistantReasoning,
   SessionMessageAssistantText,
 } from "@opencode/client"
+import type { ResolvedSkin } from "@opencode/theme/tui"
 import { Spinner } from "../../component/spinner"
 import { createSyntaxStyleMemo, useTheme, useThemes } from "../../context/theme"
 import { reasoningSummary } from "../../context/thinking"
@@ -15,6 +16,7 @@ import { Locale } from "../../util/locale"
 import { use } from "./render-context"
 import { generateThinkingSyntax } from "./thinking-syntax"
 import { canonicalToolName } from "../../util/tool-display"
+import { stringWidth } from "../../util/string-width"
 
 export const INLINE_TOOL_ICON_WIDTH = 2
 
@@ -197,6 +199,8 @@ export function TextPart(props: {
 
 export function InlineToolRow(props: {
   icon: string
+  /** The skin's tool-row tokens for tool calls: one marker glyph or an `[OK]`-style tag instead of `icon`, and the verb's case. */
+  skin?: ResolvedSkin["tool"]
   iconColor?: RGBA
   color?: RGBA
   errorColor?: RGBA
@@ -214,16 +218,29 @@ export function InlineToolRow(props: {
   onMouseOut?: () => void
   onMouseUp?: (event: MouseEvent) => void
 }) {
+  const icon = createMemo(() => {
+    if (props.skin?.status === "tag") return props.failed ? "[ERR]" : props.denied ? "[NO]" : "[OK]"
+    return props.skin?.marker ?? props.icon
+  })
+  const iconWidth = () => Math.max(INLINE_TOOL_ICON_WIDTH, stringWidth(icon()) + 1)
+  const resolved = children(() => props.children)
+  // Tool labels lead with their verb ("Read path"); upper-case skins render it as "READ path".
+  const label = createMemo(() => {
+    const items = resolved.toArray()
+    const first = items[0]
+    if (props.skin?.case !== "upper" || typeof first !== "string") return items
+    return [first.replace(/^\S+/, (verb) => verb.toUpperCase()), ...items.slice(1)]
+  })
   return (
     <box paddingLeft={3} onMouseOver={props.onMouseOver} onMouseOut={props.onMouseOut} onMouseUp={props.onMouseUp}>
       <Switch>
         <Match when={props.spinner}>
-          <Show when={props.status} fallback={<Spinner color={props.color} children={props.children} />}>
+          <Show when={props.status} fallback={<Spinner color={props.color} children={label()} />}>
             {(status) => (
               <box flexDirection="row" gap={1}>
                 <Spinner color={props.color} />
                 <InlineToolLabel color={props.color} status={status()}>
-                  {props.children}
+                  {label()}
                 </InlineToolLabel>
               </box>
             )}
@@ -233,11 +250,12 @@ export function InlineToolRow(props: {
           <Show fallback={<Spinner color={props.color}>{props.pending}</Spinner>} when={props.complete || props.failed}>
             <box flexDirection="row">
               <text
-                width={INLINE_TOOL_ICON_WIDTH}
+                width={iconWidth()}
+                flexShrink={0}
                 fg={props.failed ? props.errorColor : (props.iconColor ?? props.color)}
                 attributes={props.denied ? TextAttributes.STRIKETHROUGH : undefined}
               >
-                {props.icon}
+                {icon()}
               </text>
               <Show
                 when={props.status}
@@ -247,7 +265,7 @@ export function InlineToolRow(props: {
                     fg={props.failed ? props.errorColor : props.color}
                     attributes={props.denied ? TextAttributes.STRIKETHROUGH : undefined}
                   >
-                    {props.failed && !props.complete ? (props.failure ?? props.children) : props.children}
+                    {props.failed && !props.complete ? (props.failure ?? label()) : label()}
                   </text>
                 }
               >
@@ -257,7 +275,7 @@ export function InlineToolRow(props: {
                     denied={props.denied}
                     status={status()}
                   >
-                    {props.failed && !props.complete ? (props.failure ?? props.children) : props.children}
+                    {props.failed && !props.complete ? (props.failure ?? label()) : label()}
                   </InlineToolLabel>
                 )}
               </Show>
@@ -266,7 +284,7 @@ export function InlineToolRow(props: {
         </Match>
       </Switch>
       <Show when={props.failed && props.errorExpanded}>
-        <box paddingLeft={INLINE_TOOL_ICON_WIDTH}>
+        <box paddingLeft={iconWidth()}>
           <text fg={props.errorColor}>{props.error}</text>
         </box>
       </Show>

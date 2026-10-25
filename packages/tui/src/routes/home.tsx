@@ -15,6 +15,10 @@ import { useTheme } from "../context/theme"
 import { useUpdateNotification } from "../context/update-notification"
 import { useExit } from "../context/exit"
 import { FadeInText } from "../component/fade-in-text"
+import { SkinHeader } from "../ui/skin"
+import { useTuiPaths } from "../context/runtime"
+import { abbreviateHome } from "../runtime"
+import { Locale } from "../util/locale"
 
 let once = false
 const placeholder = {
@@ -32,6 +36,7 @@ export function Home() {
   const data = useData()
   const location = useLocation()
   const dimensions = useTerminalDimensions()
+  const paths = useTuiPaths()
   const [logoWidth, setLogoWidth] = createSignal(0)
   // Global MCP elicitations can arrive without a session route, so keep them reachable from Home.
   const currentLocation = () => route.location ?? data.location.default()
@@ -78,6 +83,15 @@ export function Home() {
     r.submit()
   })
 
+  const header = createMemo(() => {
+    const agent = local.agent.current()
+    return {
+      directory: abbreviateHome(currentLocation().directory, paths.home),
+      agent: agent ? Locale.titlecase(agent.id) : undefined,
+      model: local.model.parsed().model,
+    }
+  })
+
   return (
     <>
       <box
@@ -86,6 +100,9 @@ export function Home() {
         paddingLeft={dimensions().width < 44 ? 1 : 2}
         paddingRight={dimensions().width < 44 ? 1 : 2}
       >
+        <box width="100%" flexShrink={0}>
+          <SkinHeader info={header()} />
+        </box>
         <box flexGrow={1} minHeight={0} />
         <box height={3} minHeight={0} flexShrink={1} />
         <box

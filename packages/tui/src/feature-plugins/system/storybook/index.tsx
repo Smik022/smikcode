@@ -8,6 +8,7 @@ import { sessionLocationMissingStory } from "./session-location-missing"
 import { oneCellSpinnerStory } from "./one-cell-spinner"
 import { linkClicksStory } from "./link-clicks"
 import { highlightsStory } from "./highlights"
+import { skinsStory } from "./skins"
 
 /**
  * A story is a full-screen, fixture-driven simulation of a real production component. Stories own
@@ -20,6 +21,7 @@ export type Story = {
 }
 
 const stories: Story[] = [
+  skinsStory,
   mermanLayoutsStory,
   sessionTabsStory,
   sessionLocationMissingStory,

@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, expect, test } from "bun:test"
 import path from "node:path"
 import { RGBA, type CliRenderer, type TerminalColors } from "@opentui/core"
-import { resolveThemeDocument, selectTheme, type ResolvedTheme } from "@opencode/theme/tui"
+import { resolveThemeDocument, selectTheme, themeModes, type ResolvedTheme } from "@opencode/theme/tui"
 import {
   RUN_THEME_MONO,
   RUN_THEME_FALLBACK,
@@ -9,7 +9,7 @@ import {
   resolveRunTheme,
   type RunTheme,
 } from "../../src/mini/theme"
-import { DEFAULT_THEMES, getOpenCodeTheme, parseTheme } from "../../src/theme"
+import { allThemes, DEFAULT_THEME, DEFAULT_THEMES, getOpenCodeTheme, parseTheme } from "../../src/theme"
 import { generateSystem } from "../../src/theme/system"
 import { tmpdir } from "../fixture/fixture"
 
@@ -23,6 +23,12 @@ afterAll(async () => {
   else process.env.OPENCODE_CONFIG_DIR = previousConfig
   await tmp[Symbol.asyncDispose]()
 })
+
+// Mini keeps the terminal background, so a mode the default skin lacks falls back to the opencode theme.
+function defaultTheme(mode: "light" | "dark") {
+  const skin = parseTheme(allThemes()[DEFAULT_THEME]!)
+  return themeModes(skin).includes(mode) ? skin : getOpenCodeTheme()
+}
 
 const palette = ["#15161e", "#f7768e", "#9ece6a", "#e0af68", "#7aa2f7", "#bb9af7", "#7dcfff", "#c0caf5"] as const
 
@@ -137,7 +143,11 @@ test.each(["light", "dark"] as const)("uses shared %s defaults and named built-i
   for (const name of [undefined, "opencode", "tokyonight"] as const) {
     const theme = await resolveRunTheme(renderer({ colors }), { name, mode })
     const expected = resolveThemeDocument(
-      name === undefined || name === "opencode" ? getOpenCodeTheme() : parseTheme(DEFAULT_THEMES[name]),
+      name === undefined
+        ? defaultTheme(mode)
+        : name === "opencode"
+          ? getOpenCodeTheme()
+          : parseTheme(DEFAULT_THEMES[name]),
       mode,
     )
     try {
@@ -337,7 +347,7 @@ test("uses refreshed background brightness rather than stale mode or ANSI slot z
 })
 
 test.each(["light", "dark"] as const)("follows physical %s mode over opposite configuration", async (mode) => {
-  const expected = resolveThemeDocument(getOpenCodeTheme(), mode)
+  const expected = resolveThemeDocument(defaultTheme(mode), mode)
   for (const fail of [false, true]) {
     const theme = await resolveRunTheme(renderer({ colors: terminalColors({}, mode), themeMode: mode, fail }), {
       mode: mode === "light" ? "dark" : "light",

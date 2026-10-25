@@ -5,6 +5,8 @@ import {
   MouseEvent,
   PasteEvent,
   decodePasteBytes,
+  TextAttributes,
+  type BorderSides,
   type KeyEvent,
 } from "@opentui/core"
 import { createEffect, createMemo, onMount, createSignal, onCleanup, on, Show, Switch, Match, For } from "solid-js"
@@ -14,6 +16,7 @@ import { useTheme, useThemes } from "../../context/theme"
 import { tint } from "../../theme/color"
 import { createAnimatable, tween } from "../../ui/animation"
 import { EmptyBorder, SplitBorder } from "../../ui/border"
+import { Divider, FrameTop, frameStyle } from "../../ui/skin"
 import { useTuiPaths, useTuiTerminalEnvironment } from "../../context/runtime"
 import { useClipboard } from "../../context/clipboard"
 import { Spinner } from "../spinner"
@@ -99,6 +102,10 @@ export type PromptRef = {
 
 const DRAFT_RETENTION_MIN_CHARS = 20
 const revealedPromptMetadata = new WeakSet<object>()
+// Stable references so the animated border colour does not re-apply unchanged border props every frame.
+const SPLIT_PROMPT_BORDER = { ...SplitBorder.customBorderChars, bottomLeft: "╹" }
+const LEFT_SIDE: BorderSides[] = ["left"]
+const OPEN_TOP: BorderSides[] = ["left", "right", "bottom"]
 
 function randomIndex(count: number) {
   if (count <= 0) return 0
@@ -1652,24 +1659,62 @@ export function Prompt(props: PromptProps) {
   })
   const maxHeight = createMemo(() => Math.max(6, Math.floor(dimensions().height / 3)))
 
-  const promptBg = createMemo(() => theme.decrease(theme.background.raised.base))
+  const promptBg = createMemo(() =>
+    theme.skin.panel === "flat" ? theme.background.base : theme.decrease(theme.background.raised.base),
+  )
+  // Skins frame the prompt differently: the classic split bar, a full outline (optionally with the agent and
+  // model set into its top edge), or no box at all with a rule above.
+  const framed = () => theme.skin.border !== "split" && theme.skin.border !== "none"
+  const borderLabels = () => framed() && theme.skin.prompt.labels === "border"
+  // Same contract as panelBorder: borderColor and borderStyle switch the border back on, so `border` comes last
+  // and a borderless prompt never receives a colour.
+  const frame = createMemo(() => {
+    if (theme.skin.border === "split")
+      return {
+        borderColor: borderHighlight(),
+        borderStyle: undefined,
+        customBorderChars: SPLIT_PROMPT_BORDER,
+        border: LEFT_SIDE,
+      }
+    if (theme.skin.border === "none")
+      return { borderColor: undefined, borderStyle: undefined, customBorderChars: undefined, border: false }
+    return {
+      borderColor: borderHighlight(),
+      borderStyle: frameStyle(theme.skin.border),
+      customBorderChars: undefined,
+      border: borderLabels() ? OPEN_TOP : true,
+    }
+  })
+  const frameLeft = () => {
+    const agent = agentLabel()
+    if (!agent) return
+    return store.mode === "normal" && local.permission.mode === "autoaccept" ? `${agent} · auto` : agent
+  }
+  const frameRight = () => {
+    if (store.mode !== "normal" || !promptDisplay().agentLabel) return
+    return [promptDisplay().modelLabel, promptDisplay().variant].filter(Boolean).join(" · ")
+  }
 
   return (
     <>
       <box ref={(r: BoxRenderable) => (anchor = r)} visible={props.visible !== false} width="100%">
-        <box
-          width="100%"
-          border={["left"]}
-          borderColor={borderHighlight()}
-          customBorderChars={{
-            ...SplitBorder.customBorderChars,
-            bottomLeft: "╹",
-          }}
-        >
+        <Show when={theme.skin.border === "none"}>
+          <Divider color={borderHighlight()} />
+        </Show>
+        <Show when={borderLabels()}>
+          <FrameTop
+            border={theme.skin.border}
+            color={borderHighlight()}
+            labelColor={highlight()}
+            left={frameLeft()}
+            right={frameRight()}
+          />
+        </Show>
+        <box width="100%" {...frame()}>
           <box
             paddingLeft={dimensions().width < 44 ? 1 : 2}
             paddingRight={dimensions().width < 44 ? 1 : 2}
-            paddingTop={1}
+            paddingTop={theme.skin.border === "split" ? 1 : 0}
             flexShrink={0}
             backgroundColor={promptBg()}
             flexGrow={1}
@@ -1743,137 +1788,158 @@ export function Prompt(props: PromptProps) {
                 </Show>
               </box>
             </Show>
-            <textarea
-              width="100%"
-              placeholder={placeholderText()}
-              placeholderColor={theme.text.muted}
-              textColor={muted() ? theme.text.muted : theme.text.base}
-              focusedTextColor={muted() ? theme.text.muted : theme.text.base}
-              minHeight={1}
-              maxHeight={maxHeight()}
-              cursorStyle={config.cursor}
-              onContentChange={() => {
-                const value = input.plainText
-                setStore("prompt", "text", value)
-                auto()?.onInput(value)
-                syncExtmarksWithPromptParts()
-                setCursorVersion((value) => value + 1)
-              }}
-              onCursorChange={() => setCursorVersion((value) => value + 1)}
-              onKeyDown={(e: { preventDefault(): void }) => {
-                if (disabled()) {
-                  e.preventDefault()
-                  return
-                }
-              }}
-              onSubmit={() => {
-                if (disabled()) return
-                // IME: double-defer so the last composed character (e.g. Korean
-                // hangul) is flushed to plainText before we read it for submission.
-                setTimeout(() => setTimeout(() => submit(), 0), 0)
-              }}
-              onPaste={(event: PasteEvent) => {
-                if (disabled()) {
+            <box flexDirection="row" width="100%">
+              <Show when={theme.skin.prompt.prefix}>
+                {(prefix) => (
+                  <text flexShrink={0} fg={borderHighlight()} attributes={TextAttributes.BOLD} selectable={false}>
+                    {prefix()}
+                  </text>
+                )}
+              </Show>
+              <textarea
+                flexGrow={1}
+                flexShrink={1}
+                minWidth={0}
+                placeholder={placeholderText()}
+                placeholderColor={theme.text.muted}
+                textColor={muted() ? theme.text.muted : theme.text.base}
+                focusedTextColor={muted() ? theme.text.muted : theme.text.base}
+                minHeight={1}
+                maxHeight={maxHeight()}
+                cursorStyle={config.cursor}
+                onContentChange={() => {
+                  const value = input.plainText
+                  setStore("prompt", "text", value)
+                  auto()?.onInput(value)
+                  syncExtmarksWithPromptParts()
+                  setCursorVersion((value) => value + 1)
+                }}
+                onCursorChange={() => setCursorVersion((value) => value + 1)}
+                onKeyDown={(e: { preventDefault(): void }) => {
+                  if (disabled()) {
+                    e.preventDefault()
+                    return
+                  }
+                }}
+                onSubmit={() => {
+                  if (disabled()) return
+                  // IME: double-defer so the last composed character (e.g. Korean
+                  // hangul) is flushed to plainText before we read it for submission.
+                  setTimeout(() => setTimeout(() => submit(), 0), 0)
+                }}
+                onPaste={(event: PasteEvent) => {
+                  if (disabled()) {
+                    event.preventDefault()
+                    return
+                  }
+
+                  // Normalize line endings at the boundary
+                  // Windows ConPTY/Terminal often sends CR-only newlines in bracketed paste
+                  // Replace CRLF first, then any remaining CR
+                  const normalizedText = decodePasteBytes(event.bytes).replace(/\r\n/g, "\n").replace(/\r/g, "\n")
+
+                  // Windows Terminal <1.25 can surface image-only clipboard as an
+                  // empty bracketed paste. Windows Terminal 1.25+ does not.
+                  if (event.bytes.byteLength === 0) {
+                    keymap.dispatch("prompt.paste")
+                    return
+                  }
+
+                  // Once we cross an async boundary below, the terminal may perform its
+                  // default paste unless we suppress it first and handle insertion ourselves.
                   event.preventDefault()
-                  return
-                }
 
-                // Normalize line endings at the boundary
-                // Windows ConPTY/Terminal often sends CR-only newlines in bracketed paste
-                // Replace CRLF first, then any remaining CR
-                const normalizedText = decodePasteBytes(event.bytes).replace(/\r\n/g, "\n").replace(/\r/g, "\n")
-
-                // Windows Terminal <1.25 can surface image-only clipboard as an
-                // empty bracketed paste. Windows Terminal 1.25+ does not.
-                if (event.bytes.byteLength === 0) {
-                  keymap.dispatch("prompt.paste")
-                  return
-                }
-
-                // Once we cross an async boundary below, the terminal may perform its
-                // default paste unless we suppress it first and handle insertion ourselves.
-                event.preventDefault()
-
-                void enqueuePaste((changed) => pasteInputText(normalizedText, changed))
-              }}
-              ref={(r: TextareaRenderable) => {
-                input = r
-                Object.assign(r, {
-                  getClipboardText: (text: string) => expandPastedTextPlaceholders(text, store.prompt.pasted),
-                })
-                setInputTarget(r)
-                if (promptPartTypeId === 0) {
-                  promptPartTypeId = input.extmarks.registerType("prompt-part")
-                }
-                props.ref?.(ref)
-                setTimeout(() => {
-                  // setTimeout is a workaround and needs to be addressed properly
-                  if (!input || input.isDestroyed) return
-                  input.cursorColor = disabled() ? theme.background.raised.base : theme.text.base
-                  if (config.cursor) input.cursorStyle = config.cursor
-                }, 0)
-              }}
-              onMouseDown={(r: MouseEvent) => {
-                if (disabled()) {
+                  void enqueuePaste((changed) => pasteInputText(normalizedText, changed))
+                }}
+                ref={(r: TextareaRenderable) => {
+                  input = r
+                  Object.assign(r, {
+                    getClipboardText: (text: string) => expandPastedTextPlaceholders(text, store.prompt.pasted),
+                  })
+                  setInputTarget(r)
+                  if (promptPartTypeId === 0) {
+                    promptPartTypeId = input.extmarks.registerType("prompt-part")
+                  }
+                  props.ref?.(ref)
+                  setTimeout(() => {
+                    // setTimeout is a workaround and needs to be addressed properly
+                    if (!input || input.isDestroyed) return
+                    input.cursorColor = disabled() ? theme.background.raised.base : theme.text.base
+                    if (config.cursor) input.cursorStyle = config.cursor
+                  }, 0)
+                }}
+                onMouseDown={(r: MouseEvent) => {
+                  if (disabled()) {
+                    r.preventDefault()
+                    return
+                  }
+                  if (r.button !== 0) return
+                  r.target?.focus()
+                  const extmark = input.extmarks
+                    .getAtOffset(input.cursorOffset)
+                    .find((item) => store.extmarkToPart.get(item.id)?.type === "pasted")
+                  if (!extmark || !expandPastedText(extmark.id)) return
                   r.preventDefault()
-                  return
-                }
-                if (r.button !== 0) return
-                r.target?.focus()
-                const extmark = input.extmarks
-                  .getAtOffset(input.cursorOffset)
-                  .find((item) => store.extmarkToPart.get(item.id)?.type === "pasted")
-                if (!extmark || !expandPastedText(extmark.id)) return
-                r.preventDefault()
-                r.stopPropagation()
-              }}
-              focusedBackgroundColor="transparent"
-              cursorColor={disabled() ? theme.background.raised.base : theme.text.base}
-              syntaxStyle={syntax()}
-            />
-            <box flexDirection="row" flexShrink={0} paddingTop={1} gap={1} justifyContent="space-between">
-              <PromptMetadataRow
-                mode={store.mode}
-                agent={agentLabel()}
-                auto={local.permission.mode === "autoaccept"}
-                model={promptDisplay().modelLabel}
-                provider={promptDisplay().providerLabel}
-                variant={promptDisplay().variant}
-                muted={!!muted()}
-                highlight={highlight()}
-                agentAlpha={agentMetaAlpha()}
-                modelAlpha={modelMetaAlpha()}
-                variantAlpha={variantMetaAlpha()}
+                  r.stopPropagation()
+                }}
+                focusedBackgroundColor="transparent"
+                cursorColor={disabled() ? theme.background.raised.base : theme.text.base}
+                syntaxStyle={syntax()}
               />
+            </box>
+            <box
+              flexDirection="row"
+              flexShrink={0}
+              paddingTop={borderLabels() ? 0 : 1}
+              gap={1}
+              justifyContent="space-between"
+            >
+              <Show when={!borderLabels()}>
+                <PromptMetadataRow
+                  mode={store.mode}
+                  agent={agentLabel()}
+                  auto={local.permission.mode === "autoaccept"}
+                  model={promptDisplay().modelLabel}
+                  provider={promptDisplay().providerLabel}
+                  variant={promptDisplay().variant}
+                  muted={!!muted()}
+                  highlight={highlight()}
+                  agentAlpha={agentMetaAlpha()}
+                  modelAlpha={modelMetaAlpha()}
+                  variantAlpha={variantMetaAlpha()}
+                />
+              </Show>
             </box>
           </box>
         </box>
-        <box
-          height={1}
-          border={["left"]}
-          borderColor={borderHighlight()}
-          customBorderChars={{
-            ...EmptyBorder,
-            vertical: promptBg().a !== 0 ? "╹" : " ",
-          }}
-        >
+        <Show when={theme.skin.border === "split"}>
           <box
             height={1}
-            border={["bottom"]}
-            borderColor={promptBg()}
-            customBorderChars={
-              promptBg().a !== 0
-                ? {
-                    ...EmptyBorder,
-                    horizontal: "▀",
-                  }
-                : {
-                    ...EmptyBorder,
-                    horizontal: " ",
-                  }
-            }
-          />
-        </box>
+            border={["left"]}
+            borderColor={borderHighlight()}
+            customBorderChars={{
+              ...EmptyBorder,
+              vertical: promptBg().a !== 0 ? "╹" : " ",
+            }}
+          >
+            <box
+              height={1}
+              border={["bottom"]}
+              borderColor={promptBg()}
+              customBorderChars={
+                promptBg().a !== 0
+                  ? {
+                      ...EmptyBorder,
+                      horizontal: "▀",
+                    }
+                  : {
+                      ...EmptyBorder,
+                      horizontal: " ",
+                    }
+              }
+            />
+          </box>
+        </Show>
         <box width="100%" flexDirection="row" justifyContent="space-between" gap={2}>
           <Slot path="prompt.footer" input={footerInput()}>
             <Slot path="prompt.footer.status" input={footerInput()}>

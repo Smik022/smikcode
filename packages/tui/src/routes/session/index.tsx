@@ -19,7 +19,10 @@ import { useRoute, useRouteData } from "../../context/route"
 import { createStore } from "solid-js/store"
 import { useData } from "../../context/data"
 import { SplitBorder } from "../../ui/border"
-import { useTuiTerminalEnvironment } from "../../context/runtime"
+import { Divider, panelBorder, panelPadding, RoleLabel, SkinHeader } from "../../ui/skin"
+import { useTuiPaths, useTuiTerminalEnvironment } from "../../context/runtime"
+import { abbreviateHome } from "../../runtime"
+import { contextUsage } from "../../util/session"
 import { Spinner, SPINNER_FRAMES } from "../../component/spinner"
 import { PatchDiff } from "../../component/patch-diff"
 import { useTheme, useThemes } from "../../context/theme"
@@ -1335,6 +1338,8 @@ export function Session(props: {
   // (dimensions() is one object signal with identity equality) and vice versa.
   const terminalWidth = createMemo(() => dimensions().width)
   const terminalHeight = createMemo(() => dimensions().height)
+  const isUserRow = (row: SessionRow | undefined) =>
+    row?.type === "message" && data.session.message.get(route.sessionID, row.messageID)?.type === "user"
 
   return (
     <context.Provider
@@ -1388,6 +1393,7 @@ export function Session(props: {
           paddingRight={dimensions().width < 44 ? 1 : 2}
         >
           <Show when={session()}>
+            <SessionSkinHeader sessionID={route.sessionID} />
             <box flexGrow={1} minHeight={0} position="relative">
               <scrollbox
                 ref={(r) => {
@@ -1424,6 +1430,10 @@ export function Session(props: {
                       row={row}
                       message={(messageID) => data.session.message.get(route.sessionID, messageID)}
                       boundaryID={boundaries()[index() + hidden()]}
+                      opensTurn={index() + hidden() > 0 && isUserRow(row)}
+                      opensReply={
+                        (row.type === "part" || row.type === "group") && isUserRow(visibleRows()[index() - 1])
+                      }
                     />
                   )}
                 </For>
@@ -1536,13 +1546,40 @@ export function Session(props: {
   )
 }
 
+function SessionSkinHeader(props: { sessionID: string }) {
+  const data = useData()
+  const local = useLocal()
+  const paths = useTuiPaths()
+  const session = createMemo(() => data.session.get(props.sessionID))
+  const info = createMemo(() => {
+    const value = session()
+    const agent = local.agent.current()
+    return {
+      directory: value ? abbreviateHome(value.location.directory, paths.home) : undefined,
+      agent: agent ? Locale.titlecase(agent.id) : undefined,
+      model: local.model.parsed().model,
+      percent: contextUsage(
+        data.session.message.list(props.sessionID),
+        data.location.model.list(value?.location),
+        value?.revert?.messageID,
+      )?.percent,
+    }
+  })
+  return <SkinHeader info={info()} />
+}
+
 type SessionRowViewProps = {
   row: SessionRow
   message: (messageID: string) => SessionMessageInfo | undefined
   boundaryID?: string
+  /** A user message that starts a new exchange after earlier rows. */
+  opensTurn?: boolean
+  /** The first assistant row answering a user message. */
+  opensReply?: boolean
 }
 
 function SessionRowView(props: SessionRowViewProps) {
+  const theme = useTheme()
   const [target, setTarget] = createSignal<BoxRenderable>()
   useEntryAnchor({
     entry: () => (props.row.type === "group" ? undefined : props.row),
@@ -1550,6 +1587,14 @@ function SessionRowView(props: SessionRowViewProps) {
   })
   return (
     <box ref={setTarget} id={sessionRowID(props.row, props.boundaryID)} marginTop={1} flexShrink={0}>
+      <Show when={props.opensTurn && theme.skin.turns === "rule"}>
+        <box paddingBottom={1}>
+          <Divider />
+        </box>
+      </Show>
+      <Show when={props.opensReply}>
+        <RoleLabel role="assistant" paddingLeft={theme.skin.border === "none" ? 0 : 1} />
+      </Show>
       <Switch>
         <Match when={props.row.type === "group" ? props.row : undefined}>
           {(row) => (
@@ -2052,7 +2097,9 @@ function CompactionMessage(props: { message: Extract<SessionMessageInfo, { type:
   return (
     <box>
       <box flexDirection="row" alignItems="center">
-        <box border={["top"]} borderColor={color()} flexGrow={1} />
+        <box flexGrow={1}>
+          <Divider color={color()} />
+        </box>
         <box flexDirection="row" gap={1} paddingLeft={1} paddingRight={1}>
           <Switch>
             <Match when={status() === "running"}>
@@ -2076,7 +2123,9 @@ function CompactionMessage(props: { message: Extract<SessionMessageInfo, { type:
             <text fg={color()}>· {usage()}</text>
           </Show>
         </box>
-        <box border={["top"]} borderColor={color()} flexGrow={1} />
+        <box flexGrow={1}>
+          <Divider color={color()} />
+        </box>
       </box>
       <Show when={content()}>
         <box paddingTop={1} paddingLeft={3}>
@@ -2101,12 +2150,16 @@ function CompactionQueued() {
   const theme = useTheme()
   return (
     <box flexDirection="row" alignItems="center">
-      <box border={["top"]} borderColor={theme.border.base} flexGrow={1} />
+      <box flexGrow={1}>
+        <Divider />
+      </box>
       <box flexDirection="row" gap={1} paddingLeft={1} paddingRight={1}>
         <text fg={theme.text.muted}>◇</text>
         <text fg={theme.text.muted}>Compaction queued</text>
       </box>
-      <box border={["top"]} borderColor={theme.border.base} flexGrow={1} />
+      <box flexGrow={1}>
+        <Divider />
+      </box>
     </box>
   )
 }
@@ -2215,8 +2268,6 @@ function ShellMessage(props: { message: Extract<SessionMessageInfo, { type: "she
 function UserMessage(props: { message: SessionMessageUser }) {
   const ctx = use()
   const newDesigns = useNewDesigns()
-  const data = useData()
-  const local = useLocal()
   const files = createMemo(() => deduplicateVisibleImages(props.message.files ?? []))
   const skills = createMemo(() => props.message.skills ?? [])
   const images = createMemo(() =>
@@ -2228,7 +2279,6 @@ function UserMessage(props: { message: SessionMessageUser }) {
   const theme = useTheme()
   const mode = themes.mode
   const [hover, setHover] = createSignal(false)
-  const color = createMemo(() => local.agent.color(data.session.get(ctx.sessionID)?.agent ?? "build"))
   const delivery = createMemo(() => ctx.pendingDelivery(props.message.id))
   const dialog = useDialog()
   const renderer = useRenderer()
@@ -2238,13 +2288,14 @@ function UserMessage(props: { message: SessionMessageUser }) {
     if (await ctx.mutatePending(action, props.message.id)) dialog.clear()
   }
 
+  const panel = () => (theme.skin.panel === "flat" ? theme.background.base : theme.background.raised.base)
+
   return (
     <Show when={props.message.text.trim() || files().length || skills().length}>
+      <RoleLabel role="user" paddingLeft={theme.skin.border === "none" ? 0 : 1} />
       <box
-        border={["left"]}
-        borderColor={delivery() ? theme.border.base : color()}
-        customBorderChars={SplitBorder.customBorderChars}
-        backgroundColor={theme.background.raised.base}
+        {...panelBorder(theme.skin.border, delivery() ? theme.border.base : theme.role.user)}
+        backgroundColor={panel()}
       >
         <SessionImages images={images()} paddingLeft={2} />
         <box
@@ -2282,10 +2333,10 @@ function UserMessage(props: { message: SessionMessageUser }) {
               />
             ))
           }}
-          paddingTop={1}
-          paddingBottom={1}
+          paddingTop={panelPadding(theme.skin.border)}
+          paddingBottom={panelPadding(theme.skin.border)}
           paddingLeft={2}
-          backgroundColor={hover() ? theme.decrease(theme.background.raised.base) : theme.background.raised.base}
+          backgroundColor={hover() ? theme.decrease(panel()) : panel()}
           flexShrink={0}
         >
           <text fg={theme.text.base}>{props.message.text}</text>
@@ -2347,24 +2398,23 @@ function QueuedPromptDock(props: { prompts: { id: string; text: string }[]; onOp
   const theme = useTheme()
   const [hover, setHover] = createSignal(false)
   const next = createMemo(() => props.prompts[0]?.text.replaceAll("\n", " "))
+  const panel = () => (theme.skin.panel === "flat" ? theme.background.base : theme.background.raised.base)
 
   return (
     <box
       marginBottom={1}
-      border={["left"]}
-      borderColor={theme.border.base}
-      customBorderChars={SplitBorder.customBorderChars}
+      {...panelBorder(theme.skin.border, theme.border.base)}
       onMouseOver={() => setHover(true)}
       onMouseOut={() => setHover(false)}
       onMouseUp={props.onOpen}
     >
       <box
         width="100%"
-        paddingTop={1}
-        paddingBottom={1}
+        paddingTop={panelPadding(theme.skin.border)}
+        paddingBottom={panelPadding(theme.skin.border)}
         paddingLeft={2}
         paddingRight={1}
-        backgroundColor={hover() ? theme.decrease(theme.background.raised.base) : theme.background.raised.base}
+        backgroundColor={hover() ? theme.decrease(panel()) : panel()}
         flexDirection="row"
       >
         <text fg={theme.text.muted} wrapMode="none" truncate flexGrow={1} flexShrink={1} minWidth={0}>
@@ -2672,10 +2722,10 @@ function InlineTool(props: {
     if (hover() && props.onClick) return theme.text.base
     return theme.text.muted
   })
-
   return (
     <InlineToolRow
       icon={props.icon}
+      skin={theme.skin.tool}
       color={fg()}
       errorColor={theme.text.feedback.error.base}
       failed={failed()}
@@ -2728,7 +2778,7 @@ type BlockToolProps = {
 
 function BlockTool(props: BlockToolProps) {
   const theme = useTheme()
-  const background = () => theme.background.raised.base
+  const background = () => (theme.skin.panel === "flat" ? theme.background.base : theme.background.raised.base)
   const ctx = use()
   const renderer = useRenderer()
   const [hover, setHover] = createSignal(false)
@@ -2738,15 +2788,14 @@ function BlockTool(props: BlockToolProps) {
   const permission = useToolPermission(() => props.part)
   return (
     <box
-      border={["left"]}
+      // The classic split bar is a gutter in the page colour; framed skins draw a visible outline.
+      {...panelBorder(theme.skin.border, theme.skin.border === "split" ? theme.background.base : theme.border.base)}
       flexShrink={0}
-      paddingTop={1}
-      paddingBottom={1}
+      paddingTop={panelPadding(theme.skin.border)}
+      paddingBottom={panelPadding(theme.skin.border)}
       paddingLeft={2}
       gap={1}
       backgroundColor={hover() ? theme.decrease(background()) : background()}
-      customBorderChars={SplitBorder.customBorderChars}
-      borderColor={theme.background.base}
       onMouseOver={() => props.onClick && setHover(true)}
       onMouseOut={() => setHover(false)}
       onMouseUp={() => {

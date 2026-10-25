@@ -3,10 +3,26 @@ import { resolveThemeColors } from "./resolve"
 import { DEFAULT_THEMES, type Theme, type ThemeV1Json } from "./v1"
 import opencode from "./assets/v2/opencode.json" with { type: "json" }
 import opencode2 from "./assets/v2/opencode2.json" with { type: "json" }
+import smikNeon from "./assets/v2/smik-neon.json" with { type: "json" }
+import smikMono from "./assets/v2/smik-mono.json" with { type: "json" }
+import smikWorkshop from "./assets/v2/smik-workshop.json" with { type: "json" }
+import smikCrt from "./assets/v2/smik-crt.json" with { type: "json" }
 
 export { DEFAULT_THEMES, type Theme, type ThemeV1Json } from "./v1"
 
 export type ThemeDocumentSource = Record<string, unknown>
+
+/** SmikCode skins in picker order. They are listed before every other theme. */
+export const SKINS = [
+  { id: "smik-neon", title: "Neon night", source: smikNeon },
+  { id: "smik-mono", title: "Mono + amber", source: smikMono },
+  { id: "smik-workshop", title: "Warm workshop", source: smikWorkshop },
+  { id: "smik-crt", title: "Retro CRT", source: smikCrt },
+] as const
+
+export const DEFAULT_THEME = "smik-neon"
+
+const skinSources: Record<string, ThemeDocumentSource> = Object.fromEntries(SKINS.map((skin) => [skin.id, skin.source]))
 
 let customThemes: Record<string, ThemeDocumentSource> = {}
 let systemTheme: ThemeDocumentSource | undefined
@@ -34,8 +50,9 @@ export function getOpenCode2Theme() {
 }
 
 function listThemes(): Record<string, ThemeDocumentSource> {
-  // Priority: defaults < custom files < generated system.
+  // Priority: defaults < custom files < generated system. Skins come first so they lead the listing order.
   const themes: Record<string, ThemeDocumentSource> = {
+    ...skinSources,
     ...DEFAULT_THEMES,
     opencode: getOpenCodeTheme(),
     ...customThemes,

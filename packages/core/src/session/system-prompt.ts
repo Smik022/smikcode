@@ -24,5 +24,10 @@ export function render(prompt: string, tools: string[]) {
       "- Use the edit tool for targeted changes to existing text files. It replaces the exact text in `oldString` with `newString`, and the values must differ. By default, `oldString` must occur exactly once. If it occurs multiple times, include more surrounding context to make it unique or set `replaceAll` to true to replace every occurrence.",
     )
   }
+  if (tools.includes("todo")) {
+    instructions.push(
+      "- For work with three or more steps, keep a checklist with the todo tool and update it as you go so the user can follow your progress.",
+    )
+  }
   return prompt.replace("${OPENCODE_TOOL_GUIDANCE}", instructions.join("\n"))
 }

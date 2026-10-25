@@ -77,6 +77,7 @@ import { GrepTool } from "../tool/plugin/grep.js"
 import { McpResourceTools } from "../tool/plugin/mcp-resource.js"
 import { OpenCodeTools } from "../tool/plugin/opencode.js"
 import { QuestionTool } from "../tool/plugin/question.js"
+import { TodoTool } from "../tool/plugin/todo.js"
 import { ReadToolFileSystem } from "../tool/read-filesystem.js"
 import { ReadTool } from "../tool/plugin/read.js"
 import { ShellTool } from "../tool/plugin/shell.js"
@@ -243,6 +244,7 @@ const pre = [
   OpenCodeTools.Plugin,
   McpResourceTools.Plugin,
   QuestionTool.Plugin,
+  TodoTool.Plugin,
   ReadTool.Plugin,
   ShellTool.Plugin,
   SkillTool.Plugin,

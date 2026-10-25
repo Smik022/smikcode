@@ -44,7 +44,8 @@ const handle = (message: {
   method?: string
   params?: { textDocument?: { uri: string; text?: string }; contentChanges?: { text: string }[] }
 }) => {
-  if (message.method === "initialize") return send({ id: message.id, result: { capabilities: { textDocumentSync: 1 } } })
+  if (message.method === "initialize")
+    return send({ id: message.id, result: { capabilities: { textDocumentSync: 1 } } })
   if (message.method === "shutdown") return send({ id: message.id, result: null })
   if (message.method === "exit") return process.exit(0)
   if (message.method === "textDocument/didOpen" && message.params?.textDocument)

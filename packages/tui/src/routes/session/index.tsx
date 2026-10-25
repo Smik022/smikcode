@@ -85,6 +85,7 @@ import { PermissionPrompt } from "./permission"
 import { FormPrompt } from "./form"
 import { DialogExportOptions } from "../../ui/dialog-export-options"
 import { DialogExportResult } from "../../ui/dialog-export-result"
+import { parseTodos } from "../../util/todos"
 import { sessionEpilogue } from "../../util/presentation"
 import { useConfig, useNewDesigns } from "../../config"
 import { useClipboard } from "../../context/clipboard"
@@ -2470,6 +2471,9 @@ function ToolPart(props: { part: SessionMessageAssistantTool; images?: boolean }
       <Match when={display() === "skill"}>
         <Skill {...toolprops} />
       </Match>
+      <Match when={display() === "todo"}>
+        <Todo {...toolprops} />
+      </Match>
       <Match when={true}>
         <GenericTool {...toolprops} />
       </Match>
@@ -3490,6 +3494,51 @@ function Question(props: ToolProps) {
       <Match when={true}>
         <InlineTool icon="→" pending="Asking questions…" complete={count()} part={props.part}>
           Asked {count()} question{count() !== 1 ? "s" : ""}
+        </InlineTool>
+      </Match>
+    </Switch>
+  )
+}
+
+const todoMarkers = { pending: "○", in_progress: "▸", completed: "✓", cancelled: "✗" } as const
+
+function Todo(props: ToolProps) {
+  const theme = useTheme()
+  const todos = createMemo(() => parseTodos(props.input) ?? [])
+  const done = createMemo(() => todos().filter((todo) => todo.status === "completed").length)
+
+  return (
+    <Switch>
+      <Match when={props.part.state.status === "completed" && todos().length > 0}>
+        <BlockTool title={`# Todos ${done()}/${todos().length}`} part={props.part}>
+          <box>
+            <For each={todos()}>
+              {(todo) => (
+                <text
+                  fg={todo.status === "completed" || todo.status === "cancelled" ? theme.text.muted : theme.text.base}
+                  attributes={
+                    todo.status === "in_progress"
+                      ? TextAttributes.BOLD
+                      : todo.status === "cancelled"
+                        ? TextAttributes.STRIKETHROUGH
+                        : undefined
+                  }
+                >
+                  {todoMarkers[todo.status]} {todo.content}
+                </text>
+              )}
+            </For>
+          </box>
+        </BlockTool>
+      </Match>
+      <Match when={true}>
+        <InlineTool
+          icon="☐"
+          pending="Updating todos…"
+          complete={props.part.state.status === "completed"}
+          part={props.part}
+        >
+          {todos().length === 0 ? "Cleared todos" : "Updated todos"}
         </InlineTool>
       </Match>
     </Switch>

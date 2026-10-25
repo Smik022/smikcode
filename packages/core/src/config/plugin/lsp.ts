@@ -40,7 +40,8 @@ export const Plugin = define({
           extensions: "extensions" in entry && entry.extensions ? entry.extensions : (builtIn?.extensions ?? []),
           environment: "env" in entry ? entry.env : undefined,
           initialization: "initialization" in entry ? entry.initialization : undefined,
-          command: "command" in entry ? Effect.succeed([...entry.command]) : (builtIn?.command ?? Effect.succeed(false)),
+          command:
+            "command" in entry ? Effect.succeed([...entry.command]) : (builtIn?.command ?? Effect.succeed(false)),
         })
       }
     })

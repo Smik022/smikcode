@@ -32,6 +32,7 @@ const toolDisplays = new Set([
   "patch",
   "question",
   "skill",
+  "todo",
 ])
 
 export function toolDisplay(tool: string) {

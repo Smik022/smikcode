@@ -1,0 +1,144 @@
+{
+  "$schema": "https://opencode.ai/desktop-theme.json",
+  "name": "Mono + amber",
+  "id": "smik-mono",
+  "light": {
+    "palette": {
+      "neutral": "#f5f5f3",
+      "ink": "#1c1c1c",
+      "primary": "#b26a00",
+      "accent": "#b26a00",
+      "success": "#4f6b3d",
+      "warning": "#b26a00",
+      "error": "#b23b31",
+      "info": "#5a5a5a",
+      "interactive": "#b26a00",
+      "diffAdd": "#4f6b3d",
+      "diffDelete": "#b23b31"
+    },
+    "overrides": {
+      "background-base": "#f5f5f3",
+      "background-weak": "#ececea",
+      "background-strong": "#f5f5f3",
+      "background-stronger": "#ececea",
+      "surface-raised-stronger-non-alpha": "#ececea",
+      "surface-float-base": "#ececea",
+      "input-base": "#ececea",
+      "text-strong": "#1c1c1c",
+      "text-base": "#1c1c1c",
+      "text-weak": "#6a6a6a",
+      "text-weaker": "#9a9a9a",
+      "text-interactive-base": "#b26a00",
+      "border-base": "#d0d0cc",
+      "border-weak-base": "#d0d0cc",
+      "border-weaker-base": "#d0d0cc80",
+      "border-strong-base": "#6a6a6a",
+      "icon-base": "#6a6a6a",
+      "icon-weak-base": "#9a9a9a",
+      "icon-strong-base": "#1c1c1c",
+      "markdown-text": "#1c1c1c",
+      "markdown-horizontal-rule": "#d0d0cc"
+    },
+    "v2Overrides": {
+      "v2-background-bg-deep": "#f5f5f3",
+      "v2-background-bg-base": "#ececea",
+      "v2-background-bg-layer-01": "#e2e2df",
+      "v2-background-bg-layer-02": "#d6d6d2",
+      "v2-background-bg-layer-03": "#d0d0cc",
+      "v2-text-text-base": "#1c1c1c",
+      "v2-text-text-muted": "#6a6a6a",
+      "v2-text-text-faint": "#9a9a9a",
+      "v2-text-text-accent": "#b26a00",
+      "v2-icon-icon-accent": "#b26a00",
+      "v2-border-border-base": "#d0d0cc",
+      "v2-border-border-muted": "#d0d0cc99",
+      "v2-border-border-strong": "#6a6a6a",
+      "v2-border-border-focus": "#b26a00"
+    },
+    "skinColors": {
+      "roleUser": "#b26a00",
+      "roleAssistant": "#1c1c1c",
+      "brandStart": "#6a6a6a",
+      "brandEnd": "#b26a00"
+    }
+  },
+  "dark": {
+    "palette": {
+      "neutral": "#121212",
+      "ink": "#d4d4d4",
+      "primary": "#ffb000",
+      "accent": "#ffb000",
+      "success": "#9cb48a",
+      "warning": "#ffb000",
+      "error": "#d9665b",
+      "info": "#9a9a9a",
+      "interactive": "#ffb000",
+      "diffAdd": "#9cb48a",
+      "diffDelete": "#d9665b"
+    },
+    "overrides": {
+      "background-base": "#121212",
+      "background-weak": "#1a1a1a",
+      "background-strong": "#121212",
+      "background-stronger": "#1a1a1a",
+      "surface-raised-stronger-non-alpha": "#1a1a1a",
+      "surface-float-base": "#1a1a1a",
+      "input-base": "#1a1a1a",
+      "text-strong": "#d4d4d4",
+      "text-base": "#d4d4d4",
+      "text-weak": "#8c8c8c",
+      "text-weaker": "#5e5e5e",
+      "text-interactive-base": "#ffb000",
+      "border-base": "#2e2e2e",
+      "border-weak-base": "#2e2e2e",
+      "border-weaker-base": "#2e2e2e80",
+      "border-strong-base": "#8c8c8c",
+      "icon-base": "#8c8c8c",
+      "icon-weak-base": "#5e5e5e",
+      "icon-strong-base": "#d4d4d4",
+      "markdown-text": "#d4d4d4",
+      "markdown-horizontal-rule": "#2e2e2e"
+    },
+    "v2Overrides": {
+      "v2-background-bg-deep": "#121212",
+      "v2-background-bg-base": "#1a1a1a",
+      "v2-background-bg-layer-01": "#222222",
+      "v2-background-bg-layer-02": "#2c2c2c",
+      "v2-background-bg-layer-03": "#2e2e2e",
+      "v2-text-text-base": "#d4d4d4",
+      "v2-text-text-muted": "#8c8c8c",
+      "v2-text-text-faint": "#5e5e5e",
+      "v2-text-text-accent": "#ffb000",
+      "v2-icon-icon-accent": "#ffb000",
+      "v2-border-border-base": "#2e2e2e",
+      "v2-border-border-muted": "#2e2e2e99",
+      "v2-border-border-strong": "#8c8c8c",
+      "v2-border-border-focus": "#ffb000"
+    },
+    "skinColors": {
+      "roleUser": "#ffb000",
+      "roleAssistant": "#d4d4d4",
+      "brandStart": "#8c8c8c",
+      "brandEnd": "#ffb000"
+    }
+  },
+  "skin": {
+    "radius": 0,
+    "panelBorder": "none",
+    "panelFill": "flat",
+    "divider": "─",
+    "header": "status",
+    "headerLabel": "SMIKCODE",
+    "sidebar": "right",
+    "roleLabels": {
+      "user": "you",
+      "assistant": "smik"
+    },
+    "tool": {
+      "style": "glyph",
+      "marker": "·"
+    },
+    "logo": "rule",
+    "font": "default"
+  }
+}

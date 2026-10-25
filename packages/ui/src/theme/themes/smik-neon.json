@@ -1,0 +1,148 @@
+{
+  "$schema": "https://opencode.ai/desktop-theme.json",
+  "name": "Neon night",
+  "id": "smik-neon",
+  "darkOnly": true,
+  "light": {
+    "palette": {
+      "neutral": "#0a0f24",
+      "ink": "#e8eaff",
+      "primary": "#ff3fb4",
+      "accent": "#ff3fb4",
+      "success": "#4af2a1",
+      "warning": "#ffd166",
+      "error": "#ff4d6d",
+      "info": "#5aa9ff",
+      "interactive": "#22e4f0",
+      "diffAdd": "#4af2a1",
+      "diffDelete": "#ff4d6d"
+    },
+    "overrides": {
+      "background-base": "#0a0f24",
+      "background-weak": "#111836",
+      "background-strong": "#0a0f24",
+      "background-stronger": "#111836",
+      "surface-raised-stronger-non-alpha": "#111836",
+      "surface-float-base": "#111836",
+      "input-base": "#111836",
+      "text-strong": "#e8eaff",
+      "text-base": "#e8eaff",
+      "text-weak": "#8d94c7",
+      "text-weaker": "#575f8f",
+      "text-interactive-base": "#22e4f0",
+      "border-base": "#2a3470",
+      "border-weak-base": "#2a3470",
+      "border-weaker-base": "#2a347080",
+      "border-strong-base": "#8d94c7",
+      "icon-base": "#8d94c7",
+      "icon-weak-base": "#575f8f",
+      "icon-strong-base": "#e8eaff",
+      "markdown-text": "#e8eaff",
+      "markdown-horizontal-rule": "#2a3470",
+      "surface-diff-add-base": "#0f2a2e",
+      "surface-diff-delete-base": "#2e1230"
+    },
+    "v2Overrides": {
+      "v2-background-bg-deep": "#0a0f24",
+      "v2-background-bg-base": "#111836",
+      "v2-background-bg-layer-01": "#18214a",
+      "v2-background-bg-layer-02": "#212c5e",
+      "v2-background-bg-layer-03": "#2a3470",
+      "v2-text-text-base": "#e8eaff",
+      "v2-text-text-muted": "#8d94c7",
+      "v2-text-text-faint": "#575f8f",
+      "v2-text-text-accent": "#22e4f0",
+      "v2-icon-icon-accent": "#22e4f0",
+      "v2-border-border-base": "#2a3470",
+      "v2-border-border-muted": "#2a347099",
+      "v2-border-border-strong": "#8d94c7",
+      "v2-border-border-focus": "#22e4f0"
+    },
+    "skinColors": {
+      "roleUser": "#ff3fb4",
+      "roleAssistant": "#22e4f0",
+      "brandStart": "#ff3fb4",
+      "brandEnd": "#22e4f0"
+    }
+  },
+  "dark": {
+    "palette": {
+      "neutral": "#0a0f24",
+      "ink": "#e8eaff",
+      "primary": "#ff3fb4",
+      "accent": "#ff3fb4",
+      "success": "#4af2a1",
+      "warning": "#ffd166",
+      "error": "#ff4d6d",
+      "info": "#5aa9ff",
+      "interactive": "#22e4f0",
+      "diffAdd": "#4af2a1",
+      "diffDelete": "#ff4d6d"
+    },
+    "overrides": {
+      "background-base": "#0a0f24",
+      "background-weak": "#111836",
+      "background-strong": "#0a0f24",
+      "background-stronger": "#111836",
+      "surface-raised-stronger-non-alpha": "#111836",
+      "surface-float-base": "#111836",
+      "input-base": "#111836",
+      "text-strong": "#e8eaff",
+      "text-base": "#e8eaff",
+      "text-weak": "#8d94c7",
+      "text-weaker": "#575f8f",
+      "text-interactive-base": "#22e4f0",
+      "border-base": "#2a3470",
+      "border-weak-base": "#2a3470",
+      "border-weaker-base": "#2a347080",
+      "border-strong-base": "#8d94c7",
+      "icon-base": "#8d94c7",
+      "icon-weak-base": "#575f8f",
+      "icon-strong-base": "#e8eaff",
+      "markdown-text": "#e8eaff",
+      "markdown-horizontal-rule": "#2a3470",
+      "surface-diff-add-base": "#0f2a2e",
+      "surface-diff-delete-base": "#2e1230"
+    },
+    "v2Overrides": {
+      "v2-background-bg-deep": "#0a0f24",
+      "v2-background-bg-base": "#111836",
+      "v2-background-bg-layer-01": "#18214a",
+      "v2-background-bg-layer-02": "#212c5e",
+      "v2-background-bg-layer-03": "#2a3470",
+      "v2-text-text-base": "#e8eaff",
+      "v2-text-text-muted": "#8d94c7",
+      "v2-text-text-faint": "#575f8f",
+      "v2-text-text-accent": "#22e4f0",
+      "v2-icon-icon-accent": "#22e4f0",
+      "v2-border-border-base": "#2a3470",
+      "v2-border-border-muted": "#2a347099",
+      "v2-border-border-strong": "#8d94c7",
+      "v2-border-border-focus": "#22e4f0"
+    },
+    "skinColors": {
+      "roleUser": "#ff3fb4",
+      "roleAssistant": "#22e4f0",
+      "brandStart": "#ff3fb4",
+      "brandEnd": "#22e4f0"
+    }
+  },
+  "skin": {
+    "radius": 14,
+    "panelBorder": "rounded",
+    "panelFill": "fill",
+    "divider": "─",
+    "header": "none",
+    "sidebar": "right",
+    "roleLabels": {
+      "user": "◆ you",
+      "assistant": "◇ smik"
+    },
+    "tool": {
+      "style": "icons"
+    },
+    "promptLabels": true,
+    "logo": "gradient",
+    "font": "default"
+  }
+}

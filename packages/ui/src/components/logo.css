@@ -1,4 +1,15 @@
 [data-component="logo-mark"] {
   width: 16px;
-  aspect-ratio: 4/5;
+  aspect-ratio: 6/7;
+}
+
+/* Pixel art stays crisp at any size; skins with a glow or slab shadow set --skin-logo-filter. */
+:is([data-component="logo-mark"], [data-component="logo-splash"], [data-component="logo"], [data-component="wordmark"])
+  path {
+  shape-rendering: crispEdges;
+}
+
+[data-slot="logo-smik"],
+[data-slot="logo-code"] {
+  filter: var(--skin-logo-filter, none);
 }

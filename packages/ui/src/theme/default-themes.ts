@@ -1,4 +1,8 @@
 import type { DesktopTheme } from "./types"
+import smikNeonThemeJson from "./themes/smik-neon.json"
+import smikMonoThemeJson from "./themes/smik-mono.json"
+import smikWorkshopThemeJson from "./themes/smik-workshop.json"
+import smikCrtThemeJson from "./themes/smik-crt.json"
 import oc2ThemeJson from "./themes/oc-2.json"
 import amoledThemeJson from "./themes/amoled.json"
 import auraThemeJson from "./themes/aura.json"
@@ -35,6 +39,14 @@ import tokyonightThemeJson from "./themes/tokyonight.json"
 import vercelThemeJson from "./themes/vercel.json"
 import vesperThemeJson from "./themes/vesper.json"
 import zenburnThemeJson from "./themes/zenburn.json"
+
+export const smikNeonTheme = smikNeonThemeJson as DesktopTheme
+
+export const smikMonoTheme = smikMonoThemeJson as DesktopTheme
+
+export const smikWorkshopTheme = smikWorkshopThemeJson as DesktopTheme
+
+export const smikCrtTheme = smikCrtThemeJson as DesktopTheme
 
 export const oc2Theme = oc2ThemeJson as DesktopTheme
 
@@ -108,7 +120,12 @@ export const vesperTheme = vesperThemeJson as DesktopTheme
 
 export const zenburnTheme = zenburnThemeJson as DesktopTheme
 
+// SmikCode skins first, in spec order.
 export const DEFAULT_THEMES: Record<string, DesktopTheme> = {
+  "smik-neon": smikNeonTheme,
+  "smik-mono": smikMonoTheme,
+  "smik-workshop": smikWorkshopTheme,
+  "smik-crt": smikCrtTheme,
   "oc-2": oc2Theme,
   amoled: amoledTheme,
   aura: auraTheme,

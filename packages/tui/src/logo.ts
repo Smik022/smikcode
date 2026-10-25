@@ -38,6 +38,13 @@ export function fullBlocks(rows: readonly string[]) {
 export const wordmark = halfBlocks(pixels("SMIK"))
 export const mark = halfBlocks(monogram)
 
+// The monogram in the older `{ left, right }` row layout (a blank first row, then the mark) that the CLI's
+// update screen still reads.
+export const go = {
+  left: [" ".repeat(mark[0]?.length ?? 0), ...mark],
+  right: [" ".repeat(mark[0]?.length ?? 0), ...mark],
+}
+
 /**
  * A logo cell. `ink` is the position along the brand gradient (0 = brand start, 1 = brand end);
  * "shadow" and "rule" are drawn in the skin's shadow and divider colours.

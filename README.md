@@ -7,7 +7,7 @@ SmikCode is an AI coding agent for your terminal, browser and desktop. It reads 
 ## What's different from opencode
 
 - **Its own identity:** the `smikcode` command, the SmikCode name throughout the UI, and its own config and data folders, server port and desktop app ID. It installs side by side with opencode and never shares state with it.
-- **Its own look:** switchable skins (Neon night, Mono + amber, Warm workshop, Retro CRT) in the terminal UI, web app and desktop app.
+- **Its own look:** four switchable skins in the terminal UI, web app and desktop app. A skin changes layout, borders, labels and logo as well as colors (see [Skins](#skins)).
 - **Planned improvements:** LSP diagnostics after edits, a todo/plan tool, trimming of old tool output in long sessions, and local session export.
 
 ## Run from source
@@ -36,6 +36,20 @@ The binary is written to `packages/cli/dist/cli-<os>-<arch>/bin/`.
 
 - Git on Windows can't create symlinks unless Developer Mode is on, so one TypeScript file, `packages/app/src/custom-elements.d.ts`, comes out as plain text. Either turn on Developer Mode and re-checkout, or replace it with `/// <reference path="../../ui/src/custom-elements.d.ts" />` and run `git update-index --skip-worktree packages/app/src/custom-elements.d.ts`.
 - If `bun run check` crashes the TypeScript compiler, run `bun turbo typecheck --concurrency=1` instead.
+
+## Skins
+
+| Skin | Look |
+|---|---|
+| **Neon night** (default) | Deep navy, magenta for you and cyan for the agent, rounded panels, gradient logo |
+| **Mono + amber** | Greys and one amber accent, no boxes (thin rules only), status bar along the top |
+| **Warm workshop** | Sand, terracotta and olive, square panels, left sidebar with your sessions and the agent's task list |
+| **Retro CRT** | Green phosphor on black, block-letter banner, `USER:` / `SMIK:` labels, `SMIK>` prompt |
+
+- **Terminal UI:** run `/themes` and pick a skin; the choice is saved.
+- **Web and desktop:** Settings, then Appearance, then Skin.
+
+The Warm workshop task list fills in when the agent uses the `todo` tool for multi-step work.
 
 ## Configuration
 

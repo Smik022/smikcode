@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
-import type { SessionMessageInfo } from "@opencode/client"
-import { latestTodos, parseTodos, type Todo } from "../src/util/todos"
+import type { SessionMessageInfo } from "../src/promise"
+import { latestTodos, parseTodos, type Todo } from "../src/solid/todos"
 
 // Only the fields latestTodos reads; the rest of an assistant message is irrelevant here.
 const assistant = (...tools: { name: string; status: string; input: unknown }[]) =>

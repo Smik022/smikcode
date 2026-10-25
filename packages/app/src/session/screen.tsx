@@ -11,6 +11,7 @@ import {
   type Accessor,
 } from "solid-js"
 import { createStore } from "solid-js/store"
+import { latestTodos } from "@opencode/client/solid"
 import { ResizeHandle } from "@opencode/ui/resize-handle"
 import { Slot, type BackgroundTask, type MountedSession, type SessionScreen } from "@opencode/gui-extensions/sdk"
 import { MessageTimeline } from "@/session/timeline/message-timeline"
@@ -229,6 +230,9 @@ function SessionScreenContent(props: {
   props.bindBackground(composer.requests.background.tasks)
   useUsageExceededDialogs()
 
+  // The agent's checklist from its latest `todo` tool call; empty (so the slot stays hidden) until it keeps one.
+  const tasks = createMemo(() => latestTodos(session.history.messages()) ?? [])
+
   const sessionErrorFallback = (cause: unknown, reset: () => void) => {
     createEffect(on(session.identity.sessionKey, reset, { defer: true }))
 
@@ -375,8 +379,7 @@ function SessionScreenContent(props: {
         <Show when={session.identity.params.id}>
           <SkinSessionHeader session={session} />
         </Show>
-        {/* TODO(todo-tool): pass the session's task list once the todo tool lands. */}
-        <SkinTasksSlot tasks={[]} />
+        <SkinTasksSlot tasks={tasks()} />
         <div ref={screen.panel.ref} class="relative flex-1 min-h-0 flex flex-col md:flex-row gap-2">
           {/* Keep the control outside panel animations. */}
           <Show when={isDesktop() && messagesReady() && session.identity.params.id}>

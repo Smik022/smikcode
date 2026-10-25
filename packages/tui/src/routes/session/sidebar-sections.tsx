@@ -4,22 +4,18 @@ import { createMemo, For, Show, type Accessor } from "solid-js"
 import { useData } from "../../context/data"
 import { useRoute } from "../../context/route"
 import { useTheme } from "../../context/theme"
+import { latestTodos, type Todo } from "../../util/todos"
 
-/** One entry of a session's task checklist, shaped like the todo tool's `latestTodos()` entries. */
-export type SessionTask = {
-  content: string
-  status: "pending" | "in_progress" | "completed" | "cancelled"
-}
+/** One entry of a session's task checklist: an item of the agent's latest `todo` tool call. */
+export type SessionTask = Todo
 
 /**
- * SLOT(todo-tool): the session's task checklist.
- *
- * The todo tool is being added separately. Until its data reaches the TUI this returns no tasks, so the
- * "tasks" sidebar section stays hidden. Wire it to `latestTodos(messages)` from `util/todos.ts`; the
- * section renders as soon as this returns at least one task.
+ * The session's task checklist: the latest completed `todo` call in the loaded messages. Empty until the
+ * agent keeps a checklist, so the "tasks" sidebar section stays hidden.
  */
-export function useSessionTasks(_sessionID: Accessor<string>): Accessor<readonly SessionTask[]> {
-  return () => []
+export function useSessionTasks(sessionID: Accessor<string>): Accessor<readonly SessionTask[]> {
+  const data = useData()
+  return createMemo(() => latestTodos(data.session.message.list(sessionID())) ?? [])
 }
 
 const marks: Record<SessionTask["status"], string> = {

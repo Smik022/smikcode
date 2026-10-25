@@ -1,4 +1,5 @@
 /** @jsxImportSource @opentui/solid */
+import { Brand } from "@opencode/util/brand"
 import { testRender } from "@opentui/solid"
 import { expect, test } from "bun:test"
 import { createSignal } from "solid-js"
@@ -48,8 +49,8 @@ test("installation progress replaces checking while the update job is still pend
     setState({ type: "installing", version: "2.0.0" })
     await app.waitForFrame(
       (frame) =>
-        frame.includes("Updating OpenCode") &&
-        frame.includes("Installing OpenCode 2.0.0") &&
+        frame.includes(`Updating ${Brand.name}`) &&
+        frame.includes(`Installing ${Brand.name} 2.0.0`) &&
         !frame.includes("Checking"),
     )
     expect(app.captureCharFrame()).not.toContain("Skip")

@@ -84,6 +84,8 @@ export type ComposerEditorProps = {
   class?: string
   modelControl?: JSX.Element
   modelControlsVisible?: boolean
+  /** Model name for skins that label the prompt frame (data-skin-prompt="labels"). */
+  frameModel?: string
   attachKeybind?: string[]
   attachShortcut?: string
   alternateKeybind?: string[]
@@ -200,6 +202,14 @@ export function ComposerEditor(props: ComposerEditorProps) {
         onDragLeave={props.controller.onDragLeave}
         onDrop={props.controller.onDrop}
       >
+        {/* Shown only by skins that label the prompt frame; it repeats the toolbar's agent and model. */}
+        <div data-slot="composer-frame-labels" aria-hidden="true">
+          <span data-slot="composer-frame-agent">
+            {view.agent?.options().find((option) => option.id === view.agent?.current())?.label ??
+              view.agent?.current()}
+          </span>
+          <span data-slot="composer-frame-model">{props.frameModel}</span>
+        </div>
         <Show when={state.mode === "normal"}>
           <ComposerAttachments
             attachments={props.controller.attachments()}
@@ -225,6 +235,8 @@ export function ComposerEditor(props: ComposerEditorProps) {
             element.tabIndex = -1
           }}
         >
+          {/* Drawn only by skins with a prompt prefix; the editor's first line is indented to make room. */}
+          <span data-slot="composer-prompt-prefix" aria-hidden="true" />
           <div
             ref={(element) => {
               editor = element
@@ -296,6 +308,7 @@ export function ComposerEditor(props: ComposerEditorProps) {
           />
           <Show when={!props.controller.value()}>
             <div
+              data-slot="composer-placeholder"
               dir={state.mode === "normal" ? "auto" : "ltr"}
               class="pointer-events-none absolute inset-x-0 top-0 px-4 pt-4 text-[13px] font-[440] leading-5 text-v2-text-text-faint"
               classList={{ "font-mono!": state.mode === "shell" }}

@@ -1,0 +1,73 @@
+/*
+ * Shared skin rules. Skins set data-skin-* on <html> and --skin-* variables (packages/ui/src/theme/skin.ts); a theme
+ * without a skin sets neither, so none of these rules apply. Unlayered on purpose, so they beat the layered component
+ * styles they restyle. Session-specific rules live in packages/session-ui/src/components/skin.css and
+ * packages/app/src/session/skin.css.
+ */
+
+/* Panel outline per border style. Outlines with a negative offset draw a border without changing any layout. */
+html[data-skin-panel="rounded"] {
+  --skin-panel-outline: 1px solid var(--v2-border-border-base);
+  --skin-panel-outline-width: 1px;
+}
+
+html[data-skin-panel="square"] {
+  --skin-panel-outline: 1px solid var(--v2-border-border-strong);
+  --skin-panel-outline-width: 1px;
+}
+
+html[data-skin-panel="double"] {
+  --skin-panel-outline: 3px double var(--v2-border-border-strong);
+  --skin-panel-outline-width: 3px;
+}
+
+html[data-skin-panel="none"] {
+  --skin-panel-outline: 0 none transparent;
+  --skin-panel-outline-width: 0px;
+  --skin-panel-rule: 1px solid var(--v2-border-border-base);
+}
+
+/* Logo treatments. The default (and "gradient") paints the brand gradient. */
+html[data-skin-logo="rule"] {
+  --skin-logo-smik: var(--skin-brand-start);
+  --skin-logo-code: var(--skin-brand-end);
+}
+
+html[data-skin-logo="slab"] {
+  --skin-logo-smik: var(--skin-brand-start);
+  --skin-logo-code: var(--skin-brand-end);
+  --skin-logo-filter: drop-shadow(1px 1px 0 color-mix(in srgb, var(--v2-text-text-base) 45%, transparent));
+}
+
+html[data-skin-logo="phosphor"] {
+  --skin-logo-smik: var(--skin-brand-start);
+  --skin-logo-code: var(--skin-brand-end);
+  --skin-logo-filter: drop-shadow(0 0 1.5px color-mix(in srgb, var(--skin-brand-start) 80%, transparent));
+}
+
+/* Monospace everywhere. --font-family-sans is set inline from the font settings, so the derived families and the
+   elements that name the sans family directly are switched instead. KaTeX keeps its math fonts. */
+html[data-skin-font="mono"] {
+  --font-family-text: var(--skin-font);
+  --v2-font-family-sans: var(--skin-font);
+}
+
+html[data-skin-font="mono"] body :where(:not(.katex, .katex *)) {
+  font-family: var(--skin-font);
+}
+
+/* A faint CRT scanline overlay above everything; it never takes pointer events. */
+html[data-skin-scanlines="on"] body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  pointer-events: none;
+  background: repeating-linear-gradient(to bottom, transparent 0 2px, rgb(0 0 0 / 0.14) 2px 3px);
+}
+
+@media print {
+  html[data-skin-scanlines="on"] body::after {
+    display: none;
+  }
+}

@@ -1,0 +1,109 @@
+/*
+ * Transcript skin rules: role labels, message cards, tool markers and divider rules. They only apply while a skin sets
+ * data-skin-* on <html> (see packages/ui/src/theme/skin.ts) and read its --skin-* variables. Unlayered on purpose, so
+ * they beat the layered transcript styles.
+ */
+
+/* Role labels. Generated content with empty alt text: the labels are decoration, not announced. */
+html[data-skin-roles] [data-component="user-message"]::before {
+  content: var(--skin-role-user-label) / "";
+  margin-bottom: 4px;
+  color: var(--skin-role-user-color);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: var(--line-height-compact);
+  white-space: pre;
+}
+
+/* Only the first assistant row of a turn has no data-timeline-spacing, so the label appears once per turn. */
+html[data-skin-roles] [data-timeline-row="AssistantPart"]:not([data-timeline-spacing]) {
+  [data-slot="session-turn-assistant-content"]::before {
+    content: var(--skin-role-assistant-label) / "";
+    margin-top: 16px;
+    margin-bottom: -4px;
+    color: var(--skin-role-assistant-color);
+    font-size: 12px;
+    font-weight: 600;
+    line-height: var(--line-height-compact);
+    white-space: pre;
+  }
+
+  [data-component="text-part"] {
+    margin-top: 0;
+  }
+}
+
+/* Message cards follow the panel radius, border and fill. */
+html[data-skin-panel] body [data-component="user-message"] [data-slot="user-message-text"] {
+  --user-message-mention-prefix-color: var(--skin-role-user-color);
+
+  border-radius: var(--skin-radius);
+  outline: var(--skin-panel-outline);
+  outline-offset: calc(var(--skin-panel-outline-width) * -1);
+  background: var(--v2-background-bg-layer-01);
+  color: var(--v2-text-text-base);
+}
+
+html[data-skin-panel] body [data-component="user-message"][data-pending] [data-slot="user-message-text"] {
+  background: var(--v2-background-bg-layer-02);
+  color: var(--v2-text-text-muted);
+}
+
+html[data-skin-fill="flat"] body [data-component="user-message"] [data-slot="user-message-text"] {
+  padding-inline: 0;
+  border-top: var(--skin-panel-rule, none);
+  background: transparent;
+}
+
+/* Tool rows: a glyph marker, or a status tag with the verb upper-cased (the path is left as is). */
+html[data-skin-tool="glyph"] [data-component="tool-trigger"] [data-slot="basic-tool-tool-info-main"]::before {
+  content: var(--skin-tool-marker) / "";
+  flex-shrink: 0;
+  color: var(--skin-role-assistant-color);
+}
+
+html[data-skin-tool="tag"] [data-component="tool-trigger"] [data-slot="basic-tool-tool-info-main"] {
+  &::before {
+    content: var(--skin-tool-tag-ok) / "";
+    flex-shrink: 0;
+    color: var(--v2-state-fg-success);
+    font-family: var(--font-family-mono);
+  }
+
+  &:has([data-component="text-shimmer"][data-active="true"])::before {
+    content: var(--skin-tool-tag-running) / "";
+    color: var(--v2-state-fg-warning);
+  }
+
+  [data-slot="basic-tool-tool-title"] {
+    text-transform: uppercase;
+  }
+}
+
+html[data-skin-tool="tag"]
+  [data-kind="tool-error-card"]
+  [data-component="tool-trigger"]
+  [data-slot="basic-tool-tool-info-main"]::before {
+  content: var(--skin-tool-tag-error) / "";
+  color: var(--v2-state-fg-danger);
+}
+
+html[data-skin-tool="tag"] [data-kind="tool-error-card"] [data-component="tool-error-card-icon"] {
+  display: none;
+}
+
+/* Divider rules drawn with the skin's glyph instead of a hairline. */
+html[data-skin-divider] [data-slot="timeline-separator-rule"] {
+  height: auto;
+  overflow: hidden;
+  background: none;
+  color: var(--v2-border-border-strong);
+  font-family: var(--font-family-mono);
+  font-size: 11px;
+  line-height: var(--line-height-compact);
+  white-space: nowrap;
+
+  &::before {
+    content: var(--skin-divider-rule) / "";
+  }
+}

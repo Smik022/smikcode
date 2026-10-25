@@ -35,3 +35,6 @@
 
 @import "./utilities.css" layer(utilities);
 @import "./animations.css" layer(utilities);
+
+/* Unlayered: skin rules only apply while a skin sets data-skin-* on <html>, and then they win. */
+@import "./skin.css";

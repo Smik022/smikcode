@@ -15,7 +15,7 @@ import {
 } from "@opentui/core"
 import { Locale } from "../util/locale"
 import { stringWidth } from "../util/string-width"
-import { go } from "../logo"
+import { mark } from "../logo"
 import { monoTruncate } from "./mono"
 import type { RunSplashTheme } from "./theme"
 
@@ -176,9 +176,9 @@ function buildExit(input: SplashWriterInput, ctx: ScrollbackRenderContext): Scro
   const left = input.theme.left
   const right = input.theme.right
   const leftShadow = input.theme.leftShadow
-  const mark = input.mono ? ["[O]"] : go.right.slice(1)
+  const logo = input.mono ? ["[O]"] : mark
   const top = 1
-  const body_left = (mark[0]?.length ?? 0) + 2
+  const body_left = (logo[0]?.length ?? 0) + 2
   const session = "Session  "
   const label = "Continue "
   const command = `opencode mini -s ${meta.session_id}`
@@ -186,8 +186,8 @@ function buildExit(input: SplashWriterInput, ctx: ScrollbackRenderContext): Scro
   const commandHeight = wide ? 1 : Math.ceil(stringWidth(command) / width)
 
   if (wide) {
-    for (let i = 0; i < mark.length; i += 1) {
-      draw(lines, mark[i] ?? "", {
+    for (let i = 0; i < logo.length; i += 1) {
+      draw(lines, logo[i] ?? "", {
         left: 0,
         top: top + i,
         fg: left,
@@ -202,7 +202,7 @@ function buildExit(input: SplashWriterInput, ctx: ScrollbackRenderContext): Scro
     push(lines, body_left, top + 1, label, left)
   }
 
-  const height = top + (wide ? Math.max(mark.length, 2) : commandHeight)
+  const height = top + (wide ? Math.max(logo.length, 2) : commandHeight)
   const root = new BoxRenderable(ctx.renderContext, {
     position: "absolute",
     left: 0,

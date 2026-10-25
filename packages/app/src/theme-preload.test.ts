@@ -12,9 +12,7 @@ const setSystemDark = (matches: boolean) =>
 
 beforeEach(() => {
   document.head.innerHTML = ""
-  document.documentElement.removeAttribute("data-theme")
-  document.documentElement.removeAttribute("data-color-scheme")
-  document.documentElement.style.removeProperty("background-color")
+  document.documentElement.getAttributeNames().forEach((name) => document.documentElement.removeAttribute(name))
   localStorage.clear()
   setSystemDark(false)
 })
@@ -33,7 +31,7 @@ describe("theme preload", () => {
       if (stored) localStorage.setItem("opencode-color-scheme", stored)
       run()
 
-      expect(document.documentElement.dataset.theme).toBe("oc-2")
+      expect(document.documentElement.dataset.theme).toBe("smik-neon")
       expect(document.documentElement.dataset.colorScheme).toBe(scheme)
       expect(document.documentElement.style.backgroundColor).toBe(background)
     },
@@ -52,5 +50,21 @@ describe("theme preload", () => {
     expect(document.documentElement.dataset.theme).toBe("nightowl")
     expect(document.documentElement.dataset.colorScheme).toBe(expected)
     expect(document.getElementById("oc-theme-preload")?.textContent).toContain(css)
+  })
+
+  test("restores cached skin attributes and keeps a dark-only skin dark in light mode", () => {
+    localStorage.setItem("opencode-theme-id", "smik-crt")
+    localStorage.setItem("opencode-color-scheme", "light")
+    localStorage.setItem("opencode-theme-css-dark", '--skin-prompt-prefix:"SMIK> ";')
+    localStorage.setItem(
+      "opencode-theme-attributes",
+      JSON.stringify({ "data-skin-header": "banner", "data-skin-tool": "tag", "data-color-scheme": "dark" }),
+    )
+    run()
+
+    expect(document.documentElement.getAttribute("data-skin-header")).toBe("banner")
+    expect(document.documentElement.getAttribute("data-skin-tool")).toBe("tag")
+    expect(document.documentElement.dataset.colorScheme).toBe("dark")
+    expect(document.getElementById("oc-theme-preload")?.textContent).toContain('--skin-prompt-prefix:"SMIK> ";')
   })
 })

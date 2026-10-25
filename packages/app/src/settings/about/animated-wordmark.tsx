@@ -1,13 +1,17 @@
-import { createEffect, For, on, onCleanup } from "solid-js"
+import { createEffect, createUniqueId, For, on, onCleanup } from "solid-js"
 import { createStore } from "solid-js/store"
+import { LOGO_GLYPHS, LOGO_HEIGHT, LOGO_LAYOUT, LOGO_WIDTH, LogoGradient, logoFill, pixelPath } from "@opencode/ui/logo"
 
-const target = ["o", "p", "e", "n", "c", "o", "d", "e"] as const
+const target = LOGO_LAYOUT.map((item): string[] => [...LOGO_GLYPHS[item.glyph]])
 
-const choices = ["o", "p", "e", "n", "c", "d"] as const
+// Flips random pixels of a letter; unsettled letters glitch until they lock onto their glyph.
+const scramble = (rows: ReadonlyArray<string>) =>
+  rows.map((row) => [...row].map((cell) => (Math.random() < 0.35 ? (cell === "#" ? "." : "#") : cell)).join(""))
 
 export function AnimatedWordmark(props: { active: boolean }) {
-  const [state, setState] = createStore({ letters: [...target] })
+  const [state, setState] = createStore({ letters: target })
   const timers = new Set<ReturnType<typeof setTimeout>>()
+  const gradient = createUniqueId()
 
   createEffect(
     on(
@@ -17,23 +21,20 @@ export function AnimatedWordmark(props: { active: boolean }) {
         timers.clear()
 
         if (!active || matchMedia("(prefers-reduced-motion: reduce)").matches) {
-          setState("letters", [...target])
+          setState("letters", target)
 
           return
         }
 
-        const starts = target.map(() => choices[Math.floor(Math.random() * choices.length)])
         const settles = target.map(() => 6 + Math.floor(Math.random() * 8))
         const last = Math.max(...settles)
-        setState("letters", starts)
+        setState("letters", target.map(scramble))
 
         Array.from({ length: last }, (_, index) => index + 1).forEach((tick) => {
           const timer = setTimeout(() => {
             setState(
               "letters",
-              target.map((letter, index) =>
-                tick >= settles[index] ? letter : choices[Math.floor(Math.random() * choices.length)],
-              ),
+              target.map((rows, index) => (tick >= settles[index] ? rows : scramble(rows))),
             )
             timers.delete(timer)
           }, tick * 75)
@@ -47,36 +48,17 @@ export function AnimatedWordmark(props: { active: boolean }) {
   onCleanup(() => timers.forEach(clearTimeout))
 
   return (
-    <svg class="settings-about-wordmark" viewBox="0 0 234 42" aria-hidden="true">
+    <svg class="settings-about-wordmark" viewBox={`0 0 ${LOGO_WIDTH} ${LOGO_HEIGHT}`} aria-hidden="true">
       <defs>
-        <symbol id="settings-about-letter-o" viewBox="0 0 24 42">
-          <path class="settings-about-letter-shadow" d="M18 30H6V18H18V30Z" />
-          <path d="M18 12H6V30H18V12ZM24 36H0V6H24V36Z" />
-        </symbol>
-        <symbol id="settings-about-letter-p" viewBox="0 0 24 42">
-          <path class="settings-about-letter-shadow" d="M18 30H6V18H18V30Z" />
-          <path d="M6 30H18V12H6V30ZM24 36H6V42H0V6H24V36Z" />
-        </symbol>
-        <symbol id="settings-about-letter-e" viewBox="0 0 24 42">
-          <path class="settings-about-letter-shadow" d="M24 24V30H6V24H24Z" />
-          <path d="M24 24H6V30H24V36H0V6H24V24ZM6 18H18V12H6V18Z" />
-        </symbol>
-        <symbol id="settings-about-letter-n" viewBox="0 0 24 42">
-          <path class="settings-about-letter-shadow" d="M18 36H6V18H18V36Z" />
-          <path d="M18 12H6V36H0V6H18V12ZM24 36H18V12H24V36Z" />
-        </symbol>
-        <symbol id="settings-about-letter-c" viewBox="0 0 24 42">
-          <path class="settings-about-letter-shadow" d="M24 30H6V18H24V30Z" />
-          <path d="M24 12H6V30H24V36H0V6H24V12Z" />
-        </symbol>
-        <symbol id="settings-about-letter-d" viewBox="0 0 24 42">
-          <path class="settings-about-letter-shadow" d="M18 30H6V18H18V30Z" />
-          <path d="M18 12H6V30H18V12ZM24 36H0V6H18V0H24V36Z" />
-        </symbol>
+        <LogoGradient id={gradient} width={LOGO_WIDTH} />
       </defs>
-      <For each={state.letters}>
-        {(letter, index) => (
-          <use href={`#settings-about-letter-${letter}`} x={index() * 30} width="24" height="42" />
+      <For each={LOGO_LAYOUT}>
+        {(item, index) => (
+          <path
+            data-slot={item.size === 2 ? "logo-smik" : "logo-code"}
+            style={logoFill(gradient, item.size === 2 ? "smik" : "code")}
+            d={pixelPath(state.letters[index()], item.x, item.y, item.size)}
+          />
         )}
       </For>
     </svg>

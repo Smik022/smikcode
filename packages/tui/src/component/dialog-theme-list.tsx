@@ -1,16 +1,29 @@
 import { DialogSelect, type DialogSelectRef } from "../ui/dialog-select"
 import { useThemes } from "../context/theme"
+import { SKINS } from "../theme"
 import { useDialog } from "../ui/dialog"
 import { onCleanup } from "solid-js"
 
 export function DialogThemeList() {
   const themes = useThemes()
-  const options = Object.keys(themes.all())
-    .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }))
-    .map((value) => ({
-      title: value,
-      value: value,
-    }))
+  const skins = SKINS.filter((skin) => themes.has(skin.id)).map((skin) => ({
+    title: skin.title,
+    value: skin.id as string,
+    description: skin.id,
+    searchText: `${skin.title} ${skin.id}`,
+    category: "SmikCode skins",
+  }))
+  const options = [
+    ...skins,
+    ...Object.keys(themes.all())
+      .filter((value) => !SKINS.some((skin) => skin.id === value))
+      .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }))
+      .map((value) => ({
+        title: value,
+        value: value,
+        category: "Themes",
+      })),
+  ]
   const dialog = useDialog()
   let confirmed = false
   let ref: DialogSelectRef<string>

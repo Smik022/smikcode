@@ -13,3 +13,6 @@
 @import "../components/tool-count-summary.css" layer(components);
 @import "../components/tool-error-card.css" layer(components);
 @import "../components/tool-status-title.css" layer(components);
+
+/* Unlayered: skin rules only apply while a skin sets data-skin-* on <html>, and then they win. */
+@import "../components/skin.css";

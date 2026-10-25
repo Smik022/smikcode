@@ -10,7 +10,19 @@ export type {
   CssVarRef,
   V2ColorValue,
   ResolvedV2Theme,
+  ThemeSkin,
+  ThemeSkinColors,
+  SkinTool,
 } from "./types"
+
+export {
+  resolveSkin,
+  applySkinAttributes,
+  SKIN_THEME_IDS,
+  SKIN_ATTRIBUTES,
+  DEFAULT_THEME_ID,
+  type SkinAttributes,
+} from "./skin"
 
 export {
   hexToRgb,
@@ -41,6 +53,10 @@ export { ThemeProvider, useTheme, type ColorScheme } from "./context"
 
 export {
   DEFAULT_THEMES,
+  smikNeonTheme,
+  smikMonoTheme,
+  smikWorkshopTheme,
+  smikCrtTheme,
   oc2Theme,
   amoledTheme,
   auraTheme,

@@ -1,5 +1,6 @@
 import type { DesktopTheme, ResolvedTheme, ResolvedV2Theme } from "./types"
 import { resolveThemeVariant, themeToCss } from "./resolve"
+import { applySkinAttributes, DEFAULT_THEME_ID, resolveSkin } from "./skin"
 import { resolveThemeVariantV2, themeV2ToCss } from "./v2/resolve"
 
 let activeTheme: DesktopTheme | null = null
@@ -27,22 +28,24 @@ export function applyTheme(theme: DesktopTheme, themeId?: string): void {
   const lightV2Tokens = resolveThemeVariantV2(theme.light, false)
   const darkV2Tokens = resolveThemeVariantV2(theme.dark, true)
   const targetThemeId = themeId ?? theme.id
-  const css = buildThemeCss(lightTokens, darkTokens, lightV2Tokens, darkV2Tokens, targetThemeId)
+  const css = buildThemeCss(theme, lightTokens, darkTokens, lightV2Tokens, darkV2Tokens, targetThemeId)
   const themeStyleElement = ensureLoaderStyleElement()
   themeStyleElement.textContent = css
   document.documentElement.setAttribute("data-theme", targetThemeId)
+  applySkinAttributes(document.documentElement, resolveSkin(theme, "dark").attributes)
 }
 
 function buildThemeCss(
+  theme: DesktopTheme,
   light: ResolvedTheme,
   dark: ResolvedTheme,
   lightV2: ResolvedV2Theme,
   darkV2: ResolvedV2Theme,
   themeId: string,
 ): string {
-  const isDefaultTheme = themeId === "oc-2"
-  const lightCss = `${themeToCss(light)}\n  ${themeV2ToCss(lightV2)}`
-  const darkCss = `${themeToCss(dark)}\n  ${themeV2ToCss(darkV2)}`
+  const isDefaultTheme = themeId === DEFAULT_THEME_ID
+  const lightCss = `${themeToCss(light)}\n  ${themeV2ToCss(lightV2)}\n  ${resolveSkin(theme, "light").css}`
+  const darkCss = `${themeToCss(dark)}\n  ${themeV2ToCss(darkV2)}\n  ${resolveSkin(theme, "dark").css}`
 
   if (isDefaultTheme) {
     return `
@@ -112,6 +115,7 @@ export function removeTheme(): void {
   }
 
   document.documentElement.removeAttribute("data-theme")
+  applySkinAttributes(document.documentElement, {})
 }
 
 export function setColorScheme(scheme: "light" | "dark" | "auto"): void {

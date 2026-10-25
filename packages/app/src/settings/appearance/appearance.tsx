@@ -103,6 +103,24 @@ export const SettingsAppearance: Component = () => {
             </SettingsRow>
 
             <SettingsRow
+              title={language.t("settings.appearance.row.skin.title")}
+              description={language.t("settings.appearance.row.skin.description")}
+            >
+              <Select
+                data-action="settings-skin"
+                options={appearance.skin.options()}
+                current={appearance.skin.current()}
+                placeholder={language.t("settings.appearance.row.skin.custom")}
+                placement="bottom-end"
+                gutter={6}
+                value={(option) => option.id}
+                label={(option) => option.name}
+                onHighlight={appearance.skin.highlight}
+                onSelect={appearance.skin.select}
+              />
+            </SettingsRow>
+
+            <SettingsRow
               title={language.t("settings.general.row.theme.title")}
               description={
                 <>

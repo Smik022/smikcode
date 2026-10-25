@@ -1,20 +1,31 @@
 ;(function () {
   var key = "opencode-theme-id"
-  var themeId = localStorage.getItem(key) || "oc-2"
+  var themeId = localStorage.getItem(key) || "smik-neon"
+  var root = document.documentElement
+
+  // data-skin-* layout attributes (and a forced data-color-scheme for dark-only themes) cached by the theme provider.
+  var attributes = {}
+  try {
+    attributes = JSON.parse(localStorage.getItem("opencode-theme-attributes") || "{}") || {}
+  } catch (error) {}
 
   var scheme = localStorage.getItem("opencode-color-scheme") || "system"
-  var isDark = scheme === "dark" || (scheme === "system" && matchMedia("(prefers-color-scheme: dark)").matches)
+  var isDark =
+    attributes["data-color-scheme"] === "dark" ||
+    scheme === "dark" ||
+    (scheme === "system" && matchMedia("(prefers-color-scheme: dark)").matches)
   var mode = isDark ? "dark" : "light"
 
-  document.documentElement.dataset.theme = themeId
-  document.documentElement.dataset.colorScheme = mode
-  document.documentElement.style.backgroundColor = isDark ? "#080808" : "#fafafa"
+  Object.keys(attributes).forEach(function (name) {
+    if (name.indexOf("data-skin-") === 0) root.setAttribute(name, String(attributes[name]))
+  })
+  root.dataset.theme = themeId
+  root.dataset.colorScheme = mode
+  root.style.backgroundColor = isDark ? "#080808" : "#fafafa"
 
   // Update theme-color meta tag to match app color scheme
   var metas = document.querySelectorAll("meta[name='theme-color']")
   if (metas.length > 0) metas[0].setAttribute("content", isDark ? "#080808" : "#fafafa")
-
-  if (themeId === "oc-2") return
 
   var css = localStorage.getItem("opencode-theme-css-" + mode)
   if (css) {

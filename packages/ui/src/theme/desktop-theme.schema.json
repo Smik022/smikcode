@@ -26,9 +26,128 @@
     "dark": {
       "$ref": "#/definitions/ThemeVariant",
       "description": "Dark mode color variant"
+    },
+    "darkOnly": {
+      "type": "boolean",
+      "description": "The theme only has a dark look: the dark variant is applied whatever the colour scheme"
+    },
+    "skin": {
+      "$ref": "#/definitions/ThemeSkin",
+      "description": "Optional non-colour layout tokens; themes without a skin keep the default layout"
     }
   },
   "definitions": {
+    "ThemeSkin": {
+      "type": "object",
+      "description": "Non-colour skin tokens emitted as --skin-* CSS variables and data-skin-* attributes",
+      "additionalProperties": false,
+      "properties": {
+        "radius": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Panel corner radius in px"
+        },
+        "panelBorder": {
+          "type": "string",
+          "enum": ["rounded", "none", "square", "double"],
+          "description": "Border style of message cards, the prompt box and side panels"
+        },
+        "panelFill": {
+          "type": "string",
+          "enum": ["fill", "flat"],
+          "description": "Whether panels have a raised fill or sit flat on the background"
+        },
+        "divider": {
+          "type": "string",
+          "description": "Glyph used to draw divider rules"
+        },
+        "header": {
+          "type": "string",
+          "enum": ["none", "status", "banner"],
+          "description": "One-line strip at the top of the session view"
+        },
+        "headerLabel": {
+          "type": "string",
+          "description": "Brand text drawn at the start of the status strip or banner"
+        },
+        "sidebar": {
+          "type": "string",
+          "enum": ["left", "right"],
+          "description": "Side of the session view the side panel is docked to"
+        },
+        "roleLabels": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["user", "assistant"],
+          "properties": {
+            "user": { "type": "string", "description": "Label drawn before user messages" },
+            "assistant": { "type": "string", "description": "Label drawn before assistant turns" }
+          }
+        },
+        "tool": {
+          "description": "How tool rows are marked",
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["style"],
+              "properties": { "style": { "const": "icons" } }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["style", "marker"],
+              "properties": { "style": { "const": "glyph" }, "marker": { "type": "string" } }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["style", "ok", "error", "running"],
+              "properties": {
+                "style": { "const": "tag" },
+                "ok": { "type": "string" },
+                "error": { "type": "string" },
+                "running": { "type": "string" }
+              }
+            }
+          ]
+        },
+        "promptPrefix": {
+          "type": "string",
+          "description": "Text drawn before the prompt input"
+        },
+        "promptLabels": {
+          "type": "boolean",
+          "description": "Show the agent at the top-left and the model at the top-right of the prompt frame"
+        },
+        "logo": {
+          "type": "string",
+          "enum": ["gradient", "rule", "slab", "phosphor"],
+          "description": "Logo treatment"
+        },
+        "font": {
+          "type": "string",
+          "enum": ["default", "mono"],
+          "description": "Use the monospace font everywhere"
+        },
+        "scanlines": {
+          "type": "boolean",
+          "description": "Draw a subtle scanline overlay"
+        }
+      }
+    },
+    "ThemeSkinColors": {
+      "type": "object",
+      "description": "Mode-specific colours for role labels and the logo gradient",
+      "additionalProperties": false,
+      "required": ["roleUser", "roleAssistant", "brandStart", "brandEnd"],
+      "properties": {
+        "roleUser": { "$ref": "#/definitions/ColorValue" },
+        "roleAssistant": { "$ref": "#/definitions/ColorValue" },
+        "brandStart": { "$ref": "#/definitions/ColorValue" },
+        "brandEnd": { "$ref": "#/definitions/ColorValue" }
+      }
+    },
     "HexColor": {
       "type": "string",
       "pattern": "^#([0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$",
@@ -161,6 +280,10 @@
           "additionalProperties": {
             "type": "string"
           }
+        },
+        "skinColors": {
+          "$ref": "#/definitions/ThemeSkinColors",
+          "description": "Optional role label and logo gradient colours for this mode"
         }
       }
     }

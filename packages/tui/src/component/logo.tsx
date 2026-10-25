@@ -1,79 +1,36 @@
-import { RGBA, TextAttributes } from "@opentui/core"
-import { For, type JSX } from "solid-js"
+import { TextAttributes } from "@opentui/core"
+import { createMemo, For, Show } from "solid-js"
 import { useTerminalDimensions } from "@opentui/solid"
 import { useTheme } from "../context/theme"
 import { tint } from "../theme/color"
-import { go, logo } from "../logo"
+import { logoRows, markRows, type LogoCell } from "../logo"
 
+/** The SmikCode wordmark in the active skin's logo variant; narrow terminals get the monogram. */
 export function Logo() {
   const theme = useTheme()
   const dimensions = useTerminalDimensions()
-
-  const renderLine = (line: string, fg: RGBA, bold: boolean): JSX.Element[] => {
-    const shadow = tint(theme.background.base, fg, 0.25)
-    const attrs = bold ? TextAttributes.BOLD : undefined
-    return Array.from(line).map((char) => {
-      if (char === "_") {
-        return (
-          <text fg={fg} bg={shadow} attributes={attrs} selectable={false}>
-            {" "}
-          </text>
-        )
-      }
-      if (char === "^") {
-        return (
-          <text fg={fg} bg={shadow} attributes={attrs} selectable={false}>
-            ▀
-          </text>
-        )
-      }
-      if (char === "~") {
-        return (
-          <text fg={shadow} attributes={attrs} selectable={false}>
-            ▀
-          </text>
-        )
-      }
-      if (char === ",") {
-        return (
-          <text fg={shadow} attributes={attrs} selectable={false}>
-            ▄
-          </text>
-        )
-      }
-      return (
-        <text fg={fg} attributes={attrs} selectable={false}>
-          {char}
-        </text>
-      )
-    })
+  const full = createMemo(() => logoRows(theme.skin.logo, theme.skin.divider))
+  const rows = createMemo(() => {
+    const width = Math.max(...full().map((row) => row.length))
+    return dimensions().width < width + 4 ? markRows() : full()
+  })
+  const color = (ink: LogoCell["ink"]) => {
+    if (ink === "rule") return theme.border.base
+    if (ink === "shadow") return theme.brand.end
+    return tint(theme.brand.start, theme.brand.end, ink)
   }
 
   return (
     <box>
-      {dimensions().height < 12 ? null : dimensions().width < 22 ? (
-        <For each={go.right.slice(1)}>
-          {(line) => <box flexDirection="row">{renderLine(line, theme.text.base, true)}</box>}
-        </For>
-      ) : dimensions().width < 44 ? (
-        <>
-          <For each={logo.left.slice(1)}>
-            {(line) => <box flexDirection="row">{renderLine(line, theme.text.muted, false)}</box>}
-          </For>
-          <For each={logo.right}>
-            {(line) => <box flexDirection="row">{renderLine(line, theme.text.base, true)}</box>}
-          </For>
-        </>
-      ) : (
-        <For each={logo.left}>
-          {(line, index) => (
-            <box flexDirection="row" gap={1}>
-              <box flexDirection="row">{renderLine(line, theme.text.muted, false)}</box>
-              <box flexDirection="row">{renderLine(logo.right[index()], theme.text.base, true)}</box>
-            </box>
+      <Show when={dimensions().height >= 12}>
+        <For each={rows()}>
+          {(row) => (
+            <text selectable={false} wrapMode="none" attributes={TextAttributes.BOLD}>
+              <For each={row}>{(cell) => <span style={{ fg: color(cell.ink) }}>{cell.char}</span>}</For>
+            </text>
           )}
         </For>
-      )}
+      </Show>
     </box>
   )
 }

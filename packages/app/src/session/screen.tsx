@@ -19,6 +19,8 @@ import { useSettings } from "@/settings/model"
 import type { SessionModel } from "@/session/model"
 import { SESSION_PANEL_WIDTH_MIN } from "@/session/session-panel-width"
 import { SessionPanelFrame } from "@/session/session-frame"
+import { SkinSessionHeader } from "@/session/skin-header"
+import { SkinTasksSlot } from "@/session/skin-tasks"
 import { useExtensionHost } from "@/runtime/extension/host"
 import { ExtensionLinks } from "@/runtime/extension/render"
 import { createPanelSidebar, createRegion, DockRegion, MobilePanel } from "@/runtime/extension/panels"
@@ -370,6 +372,11 @@ function SessionScreenContent(props: {
   return (
     <>
       <div class="flex-1 min-h-0 flex flex-col gap-2 px-[var(--shell-inline-inset,8px)] pb-[var(--shell-bottom-inset,8px)] pt-[var(--shell-top-inset,8px)]">
+        <Show when={session.identity.params.id}>
+          <SkinSessionHeader session={session} />
+        </Show>
+        {/* TODO(todo-tool): pass the session's task list once the todo tool lands. */}
+        <SkinTasksSlot tasks={[]} />
         <div ref={screen.panel.ref} class="relative flex-1 min-h-0 flex flex-col md:flex-row gap-2">
           {/* Keep the control outside panel animations. */}
           <Show when={isDesktop() && messagesReady() && session.identity.params.id}>

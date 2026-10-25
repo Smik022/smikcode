@@ -1,6 +1,13 @@
 import { RGBA, SyntaxStyle, type CliRenderer, type ColorInput, type TerminalColors } from "@opentui/core"
 import { generateSyntax, resolveThemeDocument, themeModes, type ResolvedTheme } from "@opencode/theme/tui"
-import { allThemes, getOpenCodeTheme, isThemeSource, parseTheme, type ThemeDocumentSource } from "../theme"
+import {
+  allThemes,
+  DEFAULT_THEME,
+  getOpenCodeTheme,
+  isThemeSource,
+  parseTheme,
+  type ThemeDocumentSource,
+} from "../theme"
 import { ansiToRgba } from "../theme/color"
 import { discoverThemes } from "../theme/discovery"
 import { generateSystem, terminalMode } from "../theme/system"
@@ -280,7 +287,7 @@ export async function resolveRunTheme(
     renderer.themeMode ??
     (colors && terminalMode(colors)) ??
     (config?.mode === "light" ? "light" : "dark")
-  const name = config?.name ?? "opencode"
+  const name = config?.name ?? DEFAULT_THEME
   if (name === "system" && !colors) {
     return mode === "light" ? RUN_THEME_FALLBACK_LIGHT : RUN_THEME_FALLBACK
   }

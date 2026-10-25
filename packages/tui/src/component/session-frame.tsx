@@ -16,6 +16,7 @@ import { useSessionTerminals } from "../context/session-terminals"
 import { usePromptRef } from "../context/prompt"
 import { usePanel } from "../context/panel"
 import { useStorage } from "../context/storage"
+import { useTheme } from "../context/theme"
 import { useDialog } from "../ui/dialog"
 import { Session } from "../routes/session"
 import { Sidebar } from "../routes/session/sidebar"
@@ -37,6 +38,7 @@ export function SessionFrame(props: { sessionID: string; verticalTabsWidth: numb
   const dimensions = useTerminalDimensions()
   const panels = usePanel()
   const dialog = useDialog()
+  const theme = useTheme()
   const availableWidth = () => Math.max(0, dimensions().width - props.verticalTabsWidth)
   const defaultPaneWidth = () => Math.max(1, Math.floor(panels.width() / 2))
   const [layout, updateLayout] = useStorage().store<{ paneWidth?: number; terminalWidth?: number }>("layout", {
@@ -115,6 +117,8 @@ export function SessionFrame(props: { sessionID: string; verticalTabsWidth: numb
     if (selectedTerminal()) return "terminal"
     if (sidebarVisible()) return "sidebar"
   })
+  // Skins can dock the sidebar on the left; terminals and panels always stay on the right.
+  const sidebarLeft = () => theme.skin.sidebar.side === "left" && rightPane() === "sidebar"
   const toggleSidebar = () => {
     batch(() => {
       const visible = rightPane() === "sidebar"
@@ -263,7 +267,7 @@ export function SessionFrame(props: { sessionID: string; verticalTabsWidth: numb
       flexGrow={1}
       minWidth={0}
       minHeight={0}
-      flexDirection="row"
+      flexDirection={sidebarLeft() ? "row-reverse" : "row"}
       position="relative"
       onMouseDrag={paneResize.onMouseDrag}
       onMouseDragEnd={finishPaneResize}
@@ -389,7 +393,7 @@ export function SessionFrame(props: { sessionID: string; verticalTabsWidth: numb
           left={0}
           right={0}
           bottom={0}
-          alignItems="flex-end"
+          alignItems={theme.skin.sidebar.side === "left" ? "flex-start" : "flex-end"}
           backgroundColor={RGBA.fromInts(0, 0, 0, 70)}
         >
           <Sidebar sessionID={props.sessionID} />

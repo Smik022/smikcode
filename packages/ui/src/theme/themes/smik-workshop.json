@@ -1,0 +1,143 @@
+{
+  "$schema": "https://opencode.ai/desktop-theme.json",
+  "name": "Warm workshop",
+  "id": "smik-workshop",
+  "light": {
+    "palette": {
+      "neutral": "#f1e6d0",
+      "ink": "#3a2d20",
+      "primary": "#b9502f",
+      "accent": "#b9502f",
+      "success": "#5f6f24",
+      "warning": "#c98a1b",
+      "error": "#b3261e",
+      "info": "#3f6e8c",
+      "interactive": "#5f6f24",
+      "diffAdd": "#5f6f24",
+      "diffDelete": "#b3261e"
+    },
+    "overrides": {
+      "background-base": "#f1e6d0",
+      "background-weak": "#e8d9bc",
+      "background-strong": "#f1e6d0",
+      "background-stronger": "#e8d9bc",
+      "surface-raised-stronger-non-alpha": "#e8d9bc",
+      "surface-float-base": "#e8d9bc",
+      "input-base": "#e8d9bc",
+      "text-strong": "#3a2d20",
+      "text-base": "#3a2d20",
+      "text-weak": "#7b6650",
+      "text-weaker": "#a48f74",
+      "text-interactive-base": "#5f6f24",
+      "border-base": "#c5ad85",
+      "border-weak-base": "#c5ad85",
+      "border-weaker-base": "#c5ad8580",
+      "border-strong-base": "#7b6650",
+      "icon-base": "#7b6650",
+      "icon-weak-base": "#a48f74",
+      "icon-strong-base": "#3a2d20",
+      "markdown-text": "#3a2d20",
+      "markdown-horizontal-rule": "#c5ad85"
+    },
+    "v2Overrides": {
+      "v2-background-bg-deep": "#f1e6d0",
+      "v2-background-bg-base": "#e8d9bc",
+      "v2-background-bg-layer-01": "#ddcaa6",
+      "v2-background-bg-layer-02": "#d0ba91",
+      "v2-background-bg-layer-03": "#c5ad85",
+      "v2-text-text-base": "#3a2d20",
+      "v2-text-text-muted": "#7b6650",
+      "v2-text-text-faint": "#a48f74",
+      "v2-text-text-accent": "#5f6f24",
+      "v2-icon-icon-accent": "#5f6f24",
+      "v2-border-border-base": "#c5ad85",
+      "v2-border-border-muted": "#c5ad8599",
+      "v2-border-border-strong": "#7b6650",
+      "v2-border-border-focus": "#5f6f24"
+    },
+    "skinColors": {
+      "roleUser": "#b9502f",
+      "roleAssistant": "#5f6f24",
+      "brandStart": "#b9502f",
+      "brandEnd": "#5f6f24"
+    }
+  },
+  "dark": {
+    "palette": {
+      "neutral": "#29211a",
+      "ink": "#f1e6d0",
+      "primary": "#e0764f",
+      "accent": "#e0764f",
+      "success": "#a9b95c",
+      "warning": "#e8b04b",
+      "error": "#ef6a5a",
+      "info": "#7fb0cf",
+      "interactive": "#a9b95c",
+      "diffAdd": "#a9b95c",
+      "diffDelete": "#ef6a5a"
+    },
+    "overrides": {
+      "background-base": "#29211a",
+      "background-weak": "#33291f",
+      "background-strong": "#29211a",
+      "background-stronger": "#33291f",
+      "surface-raised-stronger-non-alpha": "#33291f",
+      "surface-float-base": "#33291f",
+      "input-base": "#33291f",
+      "text-strong": "#f1e6d0",
+      "text-base": "#f1e6d0",
+      "text-weak": "#bba684",
+      "text-weaker": "#85735a",
+      "text-interactive-base": "#a9b95c",
+      "border-base": "#5b4935",
+      "border-weak-base": "#5b4935",
+      "border-weaker-base": "#5b493580",
+      "border-strong-base": "#bba684",
+      "icon-base": "#bba684",
+      "icon-weak-base": "#85735a",
+      "icon-strong-base": "#f1e6d0",
+      "markdown-text": "#f1e6d0",
+      "markdown-horizontal-rule": "#5b4935"
+    },
+    "v2Overrides": {
+      "v2-background-bg-deep": "#29211a",
+      "v2-background-bg-base": "#33291f",
+      "v2-background-bg-layer-01": "#3e3226",
+      "v2-background-bg-layer-02": "#4b3d2e",
+      "v2-background-bg-layer-03": "#5b4935",
+      "v2-text-text-base": "#f1e6d0",
+      "v2-text-text-muted": "#bba684",
+      "v2-text-text-faint": "#85735a",
+      "v2-text-text-accent": "#a9b95c",
+      "v2-icon-icon-accent": "#a9b95c",
+      "v2-border-border-base": "#5b4935",
+      "v2-border-border-muted": "#5b493599",
+      "v2-border-border-strong": "#bba684",
+      "v2-border-border-focus": "#a9b95c"
+    },
+    "skinColors": {
+      "roleUser": "#e0764f",
+      "roleAssistant": "#a9b95c",
+      "brandStart": "#e0764f",
+      "brandEnd": "#a9b95c"
+    }
+  },
+  "skin": {
+    "radius": 0,
+    "panelBorder": "square",
+    "panelFill": "fill",
+    "divider": "━",
+    "header": "none",
+    "sidebar": "left",
+    "roleLabels": {
+      "user": "you ▸",
+      "assistant": "smik ▸"
+    },
+    "tool": {
+      "style": "glyph",
+      "marker": "▪"
+    },
+    "logo": "slab",
+    "font": "default"
+  }
+}

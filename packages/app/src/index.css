@@ -2,6 +2,8 @@
 @import "@opencode/session-ui/styles";
 @import "@opencode/ui/styles/tokens";
 @import "tw-animate-css";
+/* Unlayered: skin rules only apply while a skin sets data-skin-* on <html>, and then they win. */
+@import "./session/skin.css";
 
 @font-face {
   font-family: "JetBrainsMono Nerd Font Mono";

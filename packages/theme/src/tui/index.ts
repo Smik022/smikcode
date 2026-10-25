@@ -12,6 +12,16 @@ export {
   MarkdownDefinition,
   MarkdownToken,
   ModeDefinition,
+  SkinBorder,
+  SkinCase,
+  SkinDefinition,
+  SkinHeader,
+  SkinLogo,
+  SkinPanel,
+  SkinPromptLabels,
+  SkinSide,
+  SkinToolStatus,
+  SkinTurns,
   SurfaceName,
   SyntaxDefinition,
   SyntaxToken,
@@ -37,6 +47,7 @@ export type {
   HueScale,
   ResolvedActionState,
   ResolvedFormfieldState,
+  ResolvedSkin,
   ResolvedTheme,
   ResolvedThemeTokens,
   StatefulColor,
@@ -44,6 +55,6 @@ export type {
 export { rgbToOklch } from "./color.js"
 export { expandTheme } from "./expand.js"
 export { migrateV1 } from "./v1-migrate.js"
-export { parseThemeDocument, resolveTheme, resolveThemeDocument, themeDecodeError } from "./resolve.js"
+export { parseThemeDocument, resolveSkin, resolveTheme, resolveThemeDocument, themeDecodeError } from "./resolve.js"
 export { selectTheme, selectThemeMode, supportsThemeMode, themeModes } from "./select.js"
 export { generateSyntax } from "./syntax.js"

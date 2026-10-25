@@ -11,6 +11,16 @@ export function expandTheme<Definition extends ModeDefinition>(definition: Defin
   return {
     ...definition,
     ...expandTokens(definition),
+    // Themes written before role and brand tokens existed keep their look: the user accent follows the
+    // selected primary action and the wordmark keeps its muted-to-base two-tone.
+    role: {
+      user: definition.role?.user ?? "$text.action.primary.$selected",
+      assistant: definition.role?.assistant ?? "$text.muted",
+    },
+    brand: {
+      start: definition.brand?.start ?? "$text.muted",
+      end: definition.brand?.end ?? "$text.base",
+    },
     ...(definition["@dialog"] ? { "@dialog": expandTokens(definition["@dialog"]) } : {}),
   }
 }

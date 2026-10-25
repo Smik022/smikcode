@@ -1,0 +1,149 @@
+{
+  "$schema": "https://opencode.ai/desktop-theme.json",
+  "name": "Retro CRT",
+  "id": "smik-crt",
+  "darkOnly": true,
+  "light": {
+    "palette": {
+      "neutral": "#030803",
+      "ink": "#39ff6a",
+      "primary": "#39ff6a",
+      "accent": "#39ff6a",
+      "success": "#39ff6a",
+      "warning": "#ffcf3f",
+      "error": "#ff5a3c",
+      "info": "#5fffd7",
+      "interactive": "#5fffd7",
+      "diffAdd": "#39ff6a",
+      "diffDelete": "#ff5a3c"
+    },
+    "overrides": {
+      "background-base": "#030803",
+      "background-weak": "#081208",
+      "background-strong": "#030803",
+      "background-stronger": "#081208",
+      "surface-raised-stronger-non-alpha": "#081208",
+      "surface-float-base": "#081208",
+      "input-base": "#081208",
+      "text-strong": "#39ff6a",
+      "text-base": "#39ff6a",
+      "text-weak": "#22b84a",
+      "text-weaker": "#157a31",
+      "text-interactive-base": "#5fffd7",
+      "border-base": "#1b5e2b",
+      "border-weak-base": "#1b5e2b",
+      "border-weaker-base": "#1b5e2b80",
+      "border-strong-base": "#22b84a",
+      "icon-base": "#22b84a",
+      "icon-weak-base": "#157a31",
+      "icon-strong-base": "#39ff6a",
+      "markdown-text": "#39ff6a",
+      "markdown-horizontal-rule": "#1b5e2b"
+    },
+    "v2Overrides": {
+      "v2-background-bg-deep": "#030803",
+      "v2-background-bg-base": "#081208",
+      "v2-background-bg-layer-01": "#0d1c0d",
+      "v2-background-bg-layer-02": "#122812",
+      "v2-background-bg-layer-03": "#1b5e2b",
+      "v2-text-text-base": "#39ff6a",
+      "v2-text-text-muted": "#22b84a",
+      "v2-text-text-faint": "#157a31",
+      "v2-text-text-accent": "#5fffd7",
+      "v2-icon-icon-accent": "#5fffd7",
+      "v2-border-border-base": "#1b5e2b",
+      "v2-border-border-muted": "#1b5e2b99",
+      "v2-border-border-strong": "#22b84a",
+      "v2-border-border-focus": "#5fffd7"
+    },
+    "skinColors": {
+      "roleUser": "#c8ffd2",
+      "roleAssistant": "#39ff6a",
+      "brandStart": "#39ff6a",
+      "brandEnd": "#157a31"
+    }
+  },
+  "dark": {
+    "palette": {
+      "neutral": "#030803",
+      "ink": "#39ff6a",
+      "primary": "#39ff6a",
+      "accent": "#39ff6a",
+      "success": "#39ff6a",
+      "warning": "#ffcf3f",
+      "error": "#ff5a3c",
+      "info": "#5fffd7",
+      "interactive": "#5fffd7",
+      "diffAdd": "#39ff6a",
+      "diffDelete": "#ff5a3c"
+    },
+    "overrides": {
+      "background-base": "#030803",
+      "background-weak": "#081208",
+      "background-strong": "#030803",
+      "background-stronger": "#081208",
+      "surface-raised-stronger-non-alpha": "#081208",
+      "surface-float-base": "#081208",
+      "input-base": "#081208",
+      "text-strong": "#39ff6a",
+      "text-base": "#39ff6a",
+      "text-weak": "#22b84a",
+      "text-weaker": "#157a31",
+      "text-interactive-base": "#5fffd7",
+      "border-base": "#1b5e2b",
+      "border-weak-base": "#1b5e2b",
+      "border-weaker-base": "#1b5e2b80",
+      "border-strong-base": "#22b84a",
+      "icon-base": "#22b84a",
+      "icon-weak-base": "#157a31",
+      "icon-strong-base": "#39ff6a",
+      "markdown-text": "#39ff6a",
+      "markdown-horizontal-rule": "#1b5e2b"
+    },
+    "v2Overrides": {
+      "v2-background-bg-deep": "#030803",
+      "v2-background-bg-base": "#081208",
+      "v2-background-bg-layer-01": "#0d1c0d",
+      "v2-background-bg-layer-02": "#122812",
+      "v2-background-bg-layer-03": "#1b5e2b",
+      "v2-text-text-base": "#39ff6a",
+      "v2-text-text-muted": "#22b84a",
+      "v2-text-text-faint": "#157a31",
+      "v2-text-text-accent": "#5fffd7",
+      "v2-icon-icon-accent": "#5fffd7",
+      "v2-border-border-base": "#1b5e2b",
+      "v2-border-border-muted": "#1b5e2b99",
+      "v2-border-border-strong": "#22b84a",
+      "v2-border-border-focus": "#5fffd7"
+    },
+    "skinColors": {
+      "roleUser": "#c8ffd2",
+      "roleAssistant": "#39ff6a",
+      "brandStart": "#39ff6a",
+      "brandEnd": "#157a31"
+    }
+  },
+  "skin": {
+    "radius": 0,
+    "panelBorder": "double",
+    "panelFill": "fill",
+    "divider": "▒",
+    "header": "banner",
+    "headerLabel": "█▓▒░ SMIK ░▒▓█",
+    "sidebar": "right",
+    "roleLabels": {
+      "user": "USER:",
+      "assistant": "SMIK:"
+    },
+    "tool": {
+      "style": "tag",
+      "ok": "[OK]",
+      "error": "[ERR]",
+      "running": "[RUN]"
+    },
+    "promptPrefix": "SMIK> ",
+    "logo": "phosphor",
+    "font": "mono",
+    "scanlines": true
+  }
+}

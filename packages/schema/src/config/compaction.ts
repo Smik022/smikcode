@@ -11,4 +11,6 @@ export class Info extends Schema.Class<Info>("Config.Compaction")({
   auto: Schema.Boolean.pipe(optional),
   keep: Keep.pipe(optional),
   buffer: NonNegativeInt.pipe(optional),
+  /** Trim large tool results from older user turns before each model call. Defaults to true. */
+  prune: Schema.Boolean.pipe(optional),
 }) {}

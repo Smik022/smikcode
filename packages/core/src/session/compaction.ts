@@ -32,6 +32,7 @@ import { SessionHistory } from "./history.js"
 import type { SessionMessage } from "./message.js"
 import { SessionModelRequest } from "./model-request.js"
 import { SessionProviderContext } from "./provider-context.js"
+import { SessionPrune } from "./prune.js"
 import { SessionRunnerModel } from "./runner/model.js"
 import { SessionRunnerRetry } from "./runner/retry.js"
 import { toLLMMessages } from "./runner/to-llm-message.js"
@@ -44,6 +45,8 @@ export type Settings = {
   buffer?: number
   /** Tokens of recent conversation kept verbatim beside the summary. */
   keep: number
+  /** Trim large tool results from older user turns before each model call (SmikCode). */
+  prune: boolean
 }
 
 export type Editor = {
@@ -64,6 +67,8 @@ export type Outcome =
 
 export interface Interface extends State.Transformable<Editor> {
   readonly compact: (trigger: Trigger) => Effect.Effect<Outcome>
+  /** Shapes a primary request's messages; returns them unchanged when pruning is off. */
+  readonly prune: (messages: LLMRequest["messages"]) => LLMRequest["messages"]
 }
 
 export class Service extends Context.Service<Service, Interface>()("@opencode/SessionCompaction") {}
@@ -194,7 +199,7 @@ export const layer = Layer.effect(
 
     const state = State.create<Settings, Editor>({
       name: "session-compaction",
-      initial: () => ({ auto: true, keep: 15_000 }),
+      initial: () => ({ auto: true, keep: 15_000, prune: true }),
       editor: (settings) => ({
         configure: (update) => {
           Object.assign(settings, update)
@@ -666,6 +671,7 @@ export const layer = Layer.effect(
     return Service.of({
       transform: state.transform,
       reload: state.reload,
+      prune: (messages) => (state.get().prune ? SessionPrune.trim(messages) : messages),
       // A manual compaction settles through its `/compact` inbox item, which the runner owns.
       compact: (trigger) =>
         compact(trigger).pipe(

@@ -224,13 +224,14 @@ const layer = Layer.effect(
           continue
         }
         const stepLimitReached = loaded.agent.info.steps !== undefined && step >= loaded.agent.info.steps
-        const transcript = SessionModelRequest.baseTranscript({
+        const base = SessionModelRequest.baseTranscript({
           agent: loaded.agent.info,
           model: loaded.model,
           tools: loaded.tools,
           initial: loaded.initial,
           messages: loaded.messages,
         })
+        const transcript = { ...base, messages: [...compaction.prune(base.messages)] }
         const prepared = yield* context.request.primary({
           session: loaded.session,
           agent: loaded.agent.id,

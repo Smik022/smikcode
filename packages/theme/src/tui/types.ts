@@ -6,6 +6,15 @@ import type {
   HueStep,
   MarkdownToken,
   SemanticHue,
+  SkinBorder,
+  SkinCase,
+  SkinHeader,
+  SkinLogo,
+  SkinPanel,
+  SkinPromptLabels,
+  SkinSide,
+  SkinToolStatus,
+  SkinTurns,
   SurfaceName,
   SyntaxToken,
 } from "./schema.js"
@@ -65,9 +74,29 @@ export type ResolvedThemeTokens = {
   }
   readonly syntax: Readonly<Record<SyntaxToken, RGBA>>
   readonly markdown: Readonly<Record<MarkdownToken, RGBA>>
+  /** Identity colours for who is speaking: role labels, markers and message accents. */
+  readonly role: { readonly user: RGBA; readonly assistant: RGBA }
+  /** Wordmark colours; the logo blends from start to end. */
+  readonly brand: { readonly start: RGBA; readonly end: RGBA }
+}
+
+export type ResolvedSkin = {
+  readonly logo: SkinLogo
+  readonly border: SkinBorder
+  readonly panel: SkinPanel
+  readonly divider: string
+  readonly header: SkinHeader
+  readonly turns: SkinTurns
+  readonly sidebar: { readonly side: SkinSide; readonly sessions: boolean }
+  /** Empty labels mean the skin shows no role header. */
+  readonly role: { readonly user: string; readonly assistant: string }
+  /** `marker` replaces per-tool icons when set; `tag` shows `[OK]`-style status tags instead of icons. */
+  readonly tool: { readonly marker: string | undefined; readonly status: SkinToolStatus; readonly case: SkinCase }
+  readonly prompt: { readonly prefix: string; readonly labels: SkinPromptLabels }
 }
 
 export type ResolvedTheme = ResolvedThemeTokens & {
+  readonly skin: ResolvedSkin
   /** The same theme re-resolved on a raised surface. Absolute: every view's surfaces are the base theme's. */
   readonly surface: (name: SurfaceName) => ResolvedTheme
 }

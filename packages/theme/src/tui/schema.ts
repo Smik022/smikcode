@@ -190,6 +190,16 @@ const DiffDefinition = Schema.Struct({
 })
 export type DiffDefinition = Schema.Schema.Type<typeof DiffDefinition>
 
+const RoleDefinition = Schema.Struct({
+  user: Schema.optional(ColorValue),
+  assistant: Schema.optional(ColorValue),
+})
+
+const BrandDefinition = Schema.Struct({
+  start: Schema.optional(ColorValue),
+  end: Schema.optional(ColorValue),
+})
+
 const ThemeTokensDefinition = Schema.Struct({
   text: Schema.optional(TextDefinition),
   background: Schema.optional(BackgroundDefinition),
@@ -198,6 +208,8 @@ const ThemeTokensDefinition = Schema.Struct({
   diff: Schema.optional(DiffDefinition),
   syntax: Schema.optional(SyntaxDefinition),
   markdown: Schema.optional(MarkdownDefinition),
+  role: Schema.optional(RoleDefinition),
+  brand: Schema.optional(BrandDefinition),
 })
 export type ThemeTokensDefinition = Schema.Schema.Type<typeof ThemeTokensDefinition>
 
@@ -258,11 +270,71 @@ const CompleteThemeTokensDefinition = Schema.Struct({
   }),
   syntax: Schema.Record(SyntaxToken, HueColorValue),
   markdown: Schema.Record(MarkdownToken, HueColorValue),
+  // Optional so existing themes stay valid; expandTheme fills them from neighbouring roles.
+  role: Schema.optional(RoleDefinition),
+  brand: Schema.optional(BrandDefinition),
 })
+
+// Skins change layout and glyphs, not only colours. Every field is optional; resolveSkin fills
+// the defaults that reproduce the classic layout for themes that do not declare a skin.
+export const SkinLogo = Schema.Literals(["gradient", "rule", "slab", "phosphor"])
+export type SkinLogo = Schema.Schema.Type<typeof SkinLogo>
+export const SkinBorder = Schema.Literals(["split", "rounded", "square", "double", "none"])
+export type SkinBorder = Schema.Schema.Type<typeof SkinBorder>
+export const SkinPanel = Schema.Literals(["fill", "flat"])
+export type SkinPanel = Schema.Schema.Type<typeof SkinPanel>
+export const SkinHeader = Schema.Literals(["none", "status", "banner"])
+export type SkinHeader = Schema.Schema.Type<typeof SkinHeader>
+export const SkinSide = Schema.Literals(["left", "right"])
+export type SkinSide = Schema.Schema.Type<typeof SkinSide>
+export const SkinTurns = Schema.Literals(["space", "rule"])
+export type SkinTurns = Schema.Schema.Type<typeof SkinTurns>
+export const SkinToolStatus = Schema.Literals(["icon", "tag"])
+export type SkinToolStatus = Schema.Schema.Type<typeof SkinToolStatus>
+export const SkinCase = Schema.Literals(["none", "upper"])
+export type SkinCase = Schema.Schema.Type<typeof SkinCase>
+export const SkinPromptLabels = Schema.Literals(["inline", "border"])
+export type SkinPromptLabels = Schema.Schema.Type<typeof SkinPromptLabels>
+
+export const SkinDefinition = Schema.Struct({
+  logo: Schema.optional(SkinLogo),
+  border: Schema.optional(SkinBorder),
+  panel: Schema.optional(SkinPanel),
+  divider: Schema.optional(Schema.NonEmptyString),
+  header: Schema.optional(SkinHeader),
+  turns: Schema.optional(SkinTurns),
+  sidebar: Schema.optional(
+    Schema.Struct({
+      side: Schema.optional(SkinSide),
+      sessions: Schema.optional(Schema.Boolean),
+    }),
+  ),
+  role: Schema.optional(
+    Schema.Struct({
+      user: Schema.optional(Schema.String),
+      assistant: Schema.optional(Schema.String),
+    }),
+  ),
+  tool: Schema.optional(
+    Schema.Struct({
+      marker: Schema.optional(Schema.NonEmptyString),
+      status: Schema.optional(SkinToolStatus),
+      case: Schema.optional(SkinCase),
+    }),
+  ),
+  prompt: Schema.optional(
+    Schema.Struct({
+      prefix: Schema.optional(Schema.String),
+      labels: Schema.optional(SkinPromptLabels),
+    }),
+  ),
+})
+export type SkinDefinition = Schema.Schema.Type<typeof SkinDefinition>
 
 const ThemeDefinitionFields = Schema.Struct({
   hue: HueDefinition,
   categorical: CategoricalDefinition,
+  skin: Schema.optional(SkinDefinition),
   ...CompleteThemeTokensDefinition.fields,
   "@dialog": Schema.optional(ThemeTokensDefinition),
 })
@@ -271,6 +343,7 @@ export type ThemeDefinition = Schema.Schema.Type<typeof ThemeDefinition>
 
 export const BaseThemeDefinition = Schema.Struct({
   categorical: CategoricalDefinition,
+  skin: Schema.optional(SkinDefinition),
   ...CompleteThemeTokensDefinition.fields,
   "@dialog": Schema.optional(ThemeTokensDefinition),
 })
@@ -279,6 +352,7 @@ export type BaseThemeDefinition = Schema.Schema.Type<typeof BaseThemeDefinition>
 export const ModeDefinition = Schema.Struct({
   hue: HueDefinition,
   categorical: Schema.optional(CategoricalDefinition),
+  skin: Schema.optional(SkinDefinition),
   ...ThemeTokensDefinition.fields,
   "@dialog": Schema.optional(ThemeTokensDefinition),
 })

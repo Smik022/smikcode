@@ -15,8 +15,10 @@ import type {
   HueScale,
   Mode,
   ResolvedActionState,
+  ResolvedSkin,
   ResolvedTheme,
   ResolvedThemeTokens,
+  SkinDefinition,
   StatefulColor,
   StatefulColorDefinition,
   ThemeTokensDefinition,
@@ -71,9 +73,11 @@ function resolveExpandedTheme(definition: ThemeDefinition): ResolvedTheme {
   })
   const hueSteps = compileHueSteps(hue)
   const base = tokens(definition)
+  const skin = resolveSkin(definition.skin)
   const views = {} as Record<SurfaceName, ResolvedTheme>
   const view = (tokens: ThemeTokensDefinition): ResolvedTheme => ({
     ...resolveView(tokens, hue, categorical, hueSteps),
+    skin,
     surface: (name) => views[name],
   })
   views.dialog = definition["@dialog"] ? view(contextualize(base, definition["@dialog"])) : view(base)
@@ -89,6 +93,37 @@ function tokens(definition: ThemeDefinition): ThemeTokensDefinition {
     diff: definition.diff,
     syntax: definition.syntax,
     markdown: definition.markdown,
+    role: definition.role,
+    brand: definition.brand,
+  }
+}
+
+/** Fills skin defaults. A theme without a skin keeps the classic split-border layout with no role headers. */
+export function resolveSkin(definition: SkinDefinition | undefined): ResolvedSkin {
+  return {
+    logo: definition?.logo ?? "gradient",
+    border: definition?.border ?? "split",
+    panel: definition?.panel ?? "fill",
+    divider: definition?.divider ?? "─",
+    header: definition?.header ?? "none",
+    turns: definition?.turns ?? "space",
+    sidebar: {
+      side: definition?.sidebar?.side ?? "right",
+      sessions: definition?.sidebar?.sessions ?? false,
+    },
+    role: {
+      user: definition?.role?.user ?? "",
+      assistant: definition?.role?.assistant ?? "",
+    },
+    tool: {
+      marker: definition?.tool?.marker,
+      status: definition?.tool?.status ?? "icon",
+      case: definition?.tool?.case ?? "none",
+    },
+    prompt: {
+      prefix: definition?.prompt?.prefix ?? "",
+      labels: definition?.prompt?.labels ?? "inline",
+    },
   }
 }
 

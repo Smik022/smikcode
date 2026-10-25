@@ -40,7 +40,7 @@ export function resolveSkin(theme: DesktopTheme, mode: "light" | "dark") {
   const colors = (mode === "dark" ? theme.dark : theme.light).skinColors ?? defaultColors
   const tool = skin?.tool
 
-  const vars: Record<string, string> = {
+  const vars = {
     "skin-radius": skin?.radius === undefined ? "var(--radius-lg)" : `${skin.radius}px`,
     "skin-divider": quote(skin?.divider),
     // CSS cannot repeat a string, so rules are drawn from a long run of the glyph clipped to the line's width.

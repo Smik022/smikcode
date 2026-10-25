@@ -44,13 +44,15 @@ export function pixelPath(rows: ReadonlyArray<string>, x: number, y: number, siz
     .join("")
 }
 
-export const LOGO_SMIK_PATH = LOGO_LAYOUT.filter((item) => item.size === 2)
-  .map((item) => pixelPath(LOGO_GLYPHS[item.glyph], item.x, item.y, item.size))
-  .join("")
+function layoutPath(size: number) {
+  return LOGO_LAYOUT.flatMap((item) =>
+    item.size === size ? [pixelPath(LOGO_GLYPHS[item.glyph], item.x, item.y, item.size)] : [],
+  ).join("")
+}
 
-export const LOGO_CODE_PATH = LOGO_LAYOUT.filter((item) => item.size === 1)
-  .map((item) => pixelPath(LOGO_GLYPHS[item.glyph], item.x, item.y, item.size))
-  .join("")
+export const LOGO_SMIK_PATH = layoutPath(2)
+
+export const LOGO_CODE_PATH = layoutPath(1)
 
 const markPath = pixelPath(LOGO_GLYPHS.S, 0, 0, 2)
 

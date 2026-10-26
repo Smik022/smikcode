@@ -1738,6 +1738,34 @@ ToolRegistry.register({
   },
 })
 
+const todoInput = Schema.decodeUnknownOption(
+  Schema.Struct({ todos: Schema.Array(Schema.Struct({ status: Schema.String })) }),
+)
+
+ToolRegistry.register({
+  name: "todo",
+  render(props) {
+    const i18n = useI18n()
+
+    const progress = createMemo(() => {
+      const todos = Option.getOrUndefined(todoInput(props.input))?.todos ?? []
+
+      if (todos.length === 0) return
+
+      return `${todos.filter((todo) => todo.status === "completed").length}/${todos.length}`
+    })
+
+    return (
+      <BasicTool
+        {...props}
+        icon="check"
+        hideDetails
+        trigger={{ title: i18n.t("ui.tool.todo"), subtitle: progress() }}
+      />
+    )
+  },
+})
+
 ToolRegistry.register({
   name: "subagent",
   render(props) {

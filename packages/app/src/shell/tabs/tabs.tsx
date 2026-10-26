@@ -194,10 +194,10 @@ export const { use: useTabs, provider: TabsProvider } = createSimpleContext({
       if (next.length !== closed.length) setClosed(() => next)
     })
 
-    const navigateTab = (tab: Tab) => {
+    const navigateTab = (tab: Tab, options?: { replace?: boolean }) => {
       const href = tabHref(tab)
       setRecentKey(tabKey(tab))
-      navigate(href)
+      navigate(href, options)
     }
 
     const removeTab = (index: number) => {
@@ -264,7 +264,12 @@ export const { use: useTabs, provider: TabsProvider } = createSimpleContext({
 
         return tab
       },
-      async newDraft(draft: Omit<DraftTab, "type" | "draftID">, prompt?: string, model?: PromptModel) {
+      async newDraft(
+        draft: Omit<DraftTab, "type" | "draftID">,
+        prompt?: string,
+        model?: PromptModel,
+        options?: { replace?: boolean },
+      ) {
         const draftID = uuid()
         const tab = { type: "draft" as const, draftID, ...draft }
         memory.ensure(tabKey(tab), "prompt", () => createDraftComposerState(draftID, { prompt, model }))
@@ -274,7 +279,7 @@ export const { use: useTabs, provider: TabsProvider } = createSimpleContext({
               tabs.push(tab)
             }),
           )
-          navigate(draftHref(draftID))
+          navigate(draftHref(draftID), options)
         })
 
         return tab
@@ -554,7 +559,7 @@ export const { use: useTabs, provider: TabsProvider } = createSimpleContext({
         console.debug("[tabs] update persisted session info", { key, sessionID: session.id, current, next })
         setInfo(key, next)
       },
-      select: navigateTab,
+      select: (tab: Tab, options?: { replace?: boolean }) => navigateTab(tab, options),
       remember(tab: Tab) {
         const key = tabKey(tab)
 

@@ -16,11 +16,10 @@ import {
 import { useLanguage } from "@/runtime/i18n/language"
 import { useWorkspaceLocation } from "@/workspaces/location"
 import { useProviders } from "@/providers/catalog/providers"
-import { NEW_SESSION_CONTENT_WIDTH } from "@/new-session/layout"
 import { Persist, persisted } from "@/runtime/persistence/storage"
 import { Persistence } from "@/runtime/persistence/schema"
 import type { NewSessionWorkspaceController } from "./workspace/controller"
-import { NewSessionWordmark } from "./wordmark"
+import { RecentSessions } from "./recent"
 
 const providerTipDismissalDuration = 30 * 24 * 60 * 60 * 1000
 
@@ -39,6 +38,7 @@ export function NewSessionView(props: {
   project: PromptProjectController
   workspace: NewSessionWorkspaceController
 }) {
+  const language = useLanguage()
   const [onboarding, setOnboarding, , onboardingReady] = persisted(
     Persist.global("workspace-onboarding"),
     WorkspaceOnboardingSchema,
@@ -61,16 +61,20 @@ export function NewSessionView(props: {
           active={props.composer.state.drag === "active"}
           input={props.composer.model.selection.current()?.capabilities.input}
         />
-        <div class="absolute inset-x-0 top-[25.375%] flex justify-center px-6">
-          <div class={NEW_SESSION_CONTENT_WIDTH}>
-            <NewSessionWordmark />
-            <div class="mt-8 flex flex-col gap-8">
+        <div class="absolute inset-0 overflow-y-auto">
+          <div class="mx-auto grid min-h-full w-full max-w-[760px] grid-rows-[minmax(24px,1fr)_auto_minmax(24px,1fr)] px-6">
+            <div />
+            <div class="flex flex-col gap-5">
+              <h1 class="m-0 text-center text-[28px] leading-9 text-v2-text-text-base [font-weight:500]">
+                {language.t("start.greeting")}
+              </h1>
               <Composer model={props.composer} />
               <Show when={props.project.empty()}>
                 <PromptProjectAddButton controller={props.project} />
               </Show>
               <Show when={props.project.selected()}>
                 <div class="flex min-h-7 min-w-0 flex-row flex-wrap items-center justify-center gap-0 text-v2-text-text-faint">
+                  <span class="me-0.5 text-[13px] leading-5">{language.t("start.workingIn")}</span>
                   <PromptProjectSelector controller={props.project} placement="bottom" />
                   <Show
                     when={props.workspace.bar.visible()}
@@ -98,6 +102,9 @@ export function NewSessionView(props: {
                   </Show>
                 </div>
               </Show>
+            </div>
+            <div class="pt-10 pb-6">
+              <RecentSessions />
             </div>
           </div>
         </div>

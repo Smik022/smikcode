@@ -41,7 +41,8 @@ export type HomeSessionGroup = {
 
 export type OpenSessionOptions = { background?: boolean }
 
-export function createHomeSessionsController(home: HomeController) {
+/** `allProjects` lists sessions across every project instead of following the home project selection. */
+export function createHomeSessionsController(home: HomeController, options?: { allProjects?: boolean }) {
   const tabs = useTabs()
   const command = useCommand()
   const dialog = useDialog()
@@ -50,6 +51,7 @@ export function createHomeSessionsController(home: HomeController) {
   const queryClient = useQueryClient()
 
   const projectDirectories = createMemo(() => {
+    if (options?.allProjects) return
     const selected = home.selection.value().directory
 
     if (!selected) return

@@ -1,7 +1,7 @@
 import { Links } from "@/runtime/links"
 import { createEffect, createMemo, createResource, Match, Show, Switch, untrack } from "solid-js"
 import { createStore, unwrap } from "solid-js/store"
-import { Dynamic, Portal } from "solid-js/web"
+import { Dynamic } from "solid-js/web"
 import { useLocation, useNavigate } from "@solidjs/router"
 import { IconButton } from "@opencode/ui/icon-button"
 import { Icon } from "@opencode/ui/icon"
@@ -13,6 +13,9 @@ import { usePlatform } from "@/runtime/platform/platform"
 import { useCommand } from "@/shell/commands/command"
 import { useLanguage } from "@/runtime/i18n/language"
 import { useSettings } from "@/settings/model"
+import { useSidebar } from "@/shell/sidebar/context"
+import { displayName } from "@opencode/ui/project-avatar"
+import { Mark } from "@opencode/ui/logo"
 import { WindowsAppMenu } from "./windows-menu"
 import { applyPath, backPath, forwardPath, type HistoryLocation } from "./history"
 import { TitlebarTabStrip } from "@/shell/titlebar/tab-strip"
@@ -29,14 +32,11 @@ import { MobileDrawer, MobileDrawerContent, MobileDrawerLabel, MobileDrawerTrigg
 import { sessionTabTitle } from "./tab-title"
 import { SessionTabAvatar } from "@/shell/layout/session-tab-avatar"
 import { SessionProgressIndicatorV2 } from "@opencode/session-ui/v2/session-progress-indicator-v2"
-import { RecentlyClosedTabsMenu } from "./recently-closed-tabs-menu"
 import { useSettingsDialog } from "@/settings/command"
 import { rootSession } from "@/shell/routes/session"
 import { TitlebarItem } from "@opencode/gui-extensions/sdk"
 import { useExtensionHost } from "@/runtime/extension/host"
 import { TitlebarItems, useTitlebarItems } from "@/runtime/extension/titlebar-items"
-import devIcon from "../../../../desktop/icons/dev/64x64.png"
-import betaIcon from "../../../../desktop/icons/beta/64x64.png"
 
 const titlebarHeight = 36
 
@@ -49,15 +49,14 @@ const windowsControlsBaseWidth = 138 // 3 native Windows caption buttons at 46px
 // Native controls: 14px left inset, two 20px button pitches, and a 14px button.
 const macTrafficLightsBaseWidth = 68
 
-const macTrafficLightsTopClearance = 28
-
 // iOS blurs page content just below the status bar in Home Screen web apps, so with a top safe area the phone
 // titlebar row stays 16px clear of it, as ChatGPT's phone header does. Without one, 8px matches the content gap below.
 const mobileTopClearance = "max(8px, min(16px, env(safe-area-inset-top, 0px) * 1000))"
 
-export function Titlebar(props: { verticalTabs?: { mount?: HTMLElement } }) {
+export function Titlebar() {
   const platform = usePlatform()
   const command = useCommand()
+  const sidebar = useSidebar()
   const language = useLanguage()
   const settings = useSettings()
   const openSettings = useSettingsDialog()
@@ -71,7 +70,6 @@ export function Titlebar(props: { verticalTabs?: { mount?: HTMLElement } }) {
   const windows = createMemo(() => platform.platform === "desktop" && platform.os === "windows")
   const linux = createMemo(() => platform.platform === "desktop" && platform.os === "linux")
   const macTrafficLights = createMemo(() => mac() && !platform.windowFullscreen?.())
-  const macVerticalTabs = createMemo(() => mac() && !!props.verticalTabs)
   const zoom = () => platform.webviewZoom?.() ?? 1
   const titlebarZoom = () => (windows() ? Math.max(zoom(), minTitlebarZoom) : zoom())
 
@@ -109,7 +107,6 @@ export function Titlebar(props: { verticalTabs?: { mount?: HTMLElement } }) {
   })
 
   const titlebarItems = useTitlebarItems()
-  const hideVerticalTitlebar = createMemo(() => !!props.verticalTabs && !windows())
 
   const back = () => {
     const next = backPath(history)
@@ -147,7 +144,6 @@ export function Titlebar(props: { verticalTabs?: { mount?: HTMLElement } }) {
   return (
     <header
       data-slot="titlebar-v2"
-      hidden={hideVerticalTitlebar()}
       classList={{
         "shrink-0 relative flex flex-row h-9 bg-v2-background-bg-deep overflow-visible": true,
         "order-last": bottom(),
@@ -395,63 +391,12 @@ export function Titlebar(props: { verticalTabs?: { mount?: HTMLElement } }) {
             }
 
             const toggleHome = () => tabs.toggleHome({ home: layout.route().type === "home", current: currentTab() })
-
-            const homeButton = (vertical = false) => (
-              <Show
-                when={vertical}
-                fallback={
-                  <Tooltip
-                    placement="bottom"
-                    value={
-                      <>
-                        {language.t("home.title")}
-                        <Keybind keys={command.keybindParts("home.toggle")} variant="neutral" />
-                      </>
-                    }
-                    class="shrink-0"
-                  >
-                    <IconButton
-                      type="button"
-                      variant="ghost-muted"
-                      size="large"
-                      class="!w-9 shrink-0"
-                      icon={<Icon name="grid-plus" />}
-                      state={layout.route().type === "home" ? "pressed" : undefined}
-                      onClick={toggleHome}
-                      aria-label={language.t("home.title")}
-                      aria-pressed={layout.route().type === "home"}
-                    />
-                  </Tooltip>
-                }
-              >
-                <button
-                  type="button"
-                  data-titlebar-tab-action
-                  data-action="vertical-tabs-home"
-                  data-state={layout.route().type === "home" ? "pressed" : undefined}
-                  class="group mb-1 flex h-7 w-full shrink-0 items-center gap-1.5 rounded-[6px] ps-1.5 pe-2 text-[13px] leading-4 text-v2-text-text-faint hover:text-v2-text-text-base data-[state=pressed]:text-v2-text-text-base"
-                  onClick={toggleHome}
-                  aria-label={language.t("home.title")}
-                  aria-pressed={layout.route().type === "home"}
-                >
-                  <Icon name="grid-plus" class="shrink-0" />
-                  <span class="min-w-0 truncate">{language.t("home.title")}</span>
-                  <span
-                    class="ms-auto hidden min-w-0 truncate text-v2-text-text-faint group-hover:block group-focus-visible:block"
-                    aria-hidden="true"
-                  >
-                    <bdi dir="ltr">{command.keybind("home.toggle")}</bdi>
-                  </span>
-                </button>
-              </Show>
-            )
-
             command.register("titlebar-home", () => [
               {
                 id: "home.toggle",
                 title: language.t("home.title"),
                 category: language.t("command.category.view"),
-                keybind: windows() ? "alt+home" : "mod+b",
+                keybind: windows() ? "alt+home" : "mod+shift+h",
                 hidden: true,
                 onSelect: () => {
                   if (layout.route().type !== "home") layout.home.searchFocus.request()
@@ -518,6 +463,48 @@ export function Titlebar(props: { verticalTabs?: { mount?: HTMLElement } }) {
               )
             }
 
+            // The title, project and branch the desktop titlebar shows for the routed page.
+            const crumb = createMemo<{ title: string; project?: string; branch?: string }>(() => {
+              if (layout.route().type === "settings") return { title: language.t("sidebar.settings") }
+              const tab = currentTab()
+
+              if (!tab) return { title: "" }
+              const conn = global.servers.list().find((item) => ServerConnection.key(item) === tab.server)
+
+              if (tab.type === "draft") {
+                const project = conn
+                  ? global
+                      .ensureServerCtx(conn)
+                      .projects.list()
+                      .find((item) => item.worktree === tab.directory)
+                  : undefined
+
+                return { title: language.t("command.session.new"), project: displayName(project ?? { worktree: tab.directory }) }
+              }
+
+              const value = session()
+              const project = currentProject()
+
+              return {
+                title: currentTitle(),
+                project: project ? displayName(project) : undefined,
+                branch:
+                  conn && value
+                    ? global.ensureServerCtx(conn).data.location.vcs.info(value.location)?.branch.current
+                    : undefined,
+              }
+            })
+
+            createEffect(() => {
+              const value = session()
+              const tab = currentTab()
+
+              if (platform.platform !== "desktop" || !value || !tab) return
+              const conn = global.servers.list().find((item) => ServerConnection.key(item) === tab.server)
+
+              if (conn) void global.ensureServerCtx(conn).data.location.vcs.sync(value.location).catch(() => undefined)
+            })
+
             createEffect(() => {
               path()
               mobile()
@@ -535,13 +522,12 @@ export function Titlebar(props: { verticalTabs?: { mount?: HTMLElement } }) {
                   "ps-3.5": windows(),
                 }}
               >
-                <Show when={!mobile() && (!props.verticalTabs || windows())}>
+                <Show when={!mobile()}>
                   <ChannelIndicator horizontal />
                 </Show>
                 <Show when={windows() || linux()}>
                   <WindowsAppMenu command={command} platform={platform} />
                 </Show>
-                <Show when={!mobile() && !props.verticalTabs}>{homeButton()}</Show>
 
                 <Show
                   when={!mobile()}
@@ -679,97 +665,40 @@ export function Titlebar(props: { verticalTabs?: { mount?: HTMLElement } }) {
                     </MobileDrawer>
                   }
                 >
-                  <Show
-                    when={props.verticalTabs}
-                    fallback={
-                      <>
-                        <TitlebarTabStrip
-                          tabs={tabsStore}
-                          currentTab={currentTab()}
-                          onNavigate={(tab, el) => {
-                            tabs.select(tab)
-                            el?.scrollIntoView({ behavior: "instant" })
-                          }}
-                          onClose={(tab) => {
-                            const index = tabsStore.findIndex((item) => tabKey(item) === tabKey(tab))
-
-                            if (index !== -1) tabsStoreActions.closeTab(index)
-                          }}
-                          onReorder={(keys) => tabsStoreActions.reorder(keys)}
-                        />
-                        <RecentlyClosedTabsMenu
-                          onNewTab={openNewTab}
-                          tooltip={
-                            <>
-                              {language.t("command.session.new")}
-                              <Keybind keys={command.keybindParts("tab.new")} variant="neutral" />
-                            </>
-                          }
-                        />
-                      </>
-                    }
-                  >
-                    {(vertical) => (
-                      <Show when={vertical().mount} keyed>
-                        {(mount) => (
-                          <Portal
-                            mount={mount}
-                            ref={(element) => (element.className = "flex size-full min-h-0 flex-col")}
-                          >
-                            <Show when={macVerticalTabs()}>
-                              <div
-                                class="mb-4 min-h-7 w-full shrink-0"
-                                style={{ height: `${macTrafficLightsTopClearance / zoom()}px` }}
-                                data-tauri-drag-region
-                              />
-                            </Show>
-                            <Show when={!windows()}>
-                              <ChannelIndicator sidebar />
-                            </Show>
-                            {homeButton(true)}
-                            <RecentlyClosedTabsMenu
-                              vertical
-                              onNewTab={openNewTab}
-                              keybind={command.keybind("tab.new")}
-                            />
-                            <div class="h-4 w-full shrink-0" aria-hidden="true" />
-                            <div class="flex min-h-0 flex-1 flex-col gap-1">
-                              <TitlebarTabStrip
-                                orientation="vertical"
-                                tabs={tabsStore}
-                                currentTab={currentTab()}
-                                onNavigate={(tab, el) => {
-                                  tabs.select(tab)
-                                  el?.scrollIntoView({ behavior: "instant", block: "nearest" })
-                                }}
-                                onClose={(tab) => {
-                                  const index = tabsStore.findIndex((item) => tabKey(item) === tabKey(tab))
-
-                                  if (index !== -1) tabsStoreActions.closeTab(index)
-                                }}
-                                onReorder={(keys) => tabsStoreActions.reorder(keys)}
-                              />
-                            </div>
-                            <Show when={titlebarItems.ids().length > 0}>
-                              <div data-slot="vertical-tabs-footer" class="mt-2 flex w-full shrink-0 flex-col">
-                                <TitlebarItems items={titlebarItems} vertical />
-                              </div>
-                            </Show>
-                          </Portal>
-                        )}
-                      </Show>
-                    )}
-                  </Show>
+                  <>
+                    <Tooltip
+                      placement="bottom"
+                      class="shrink-0"
+                      value={
+                        <>
+                          {language.t("sidebar.toggle")}
+                          <Keybind keys={command.keybindParts("sidebar.toggle")} variant="neutral" />
+                        </>
+                      }
+                    >
+                      <IconButton
+                        type="button"
+                        data-action="sidebar-toggle"
+                        variant="ghost-muted"
+                        size="large"
+                        class="!w-9 shrink-0"
+                        icon={
+                          <span class="flex -scale-x-100 rtl:scale-x-100">
+                            <Icon name="sidebar-right" />
+                          </span>
+                        }
+                        onClick={sidebar.toggle}
+                        aria-label={language.t("sidebar.toggle")}
+                        aria-expanded={sidebar.opened()}
+                      />
+                    </Tooltip>
+                    <TitlebarCrumb title={crumb().title} project={crumb().project} branch={crumb().branch} />
+                  </>
                 </Show>
-                <Show when={!mobile()}>
-                  <div class="flex-1" />
-                </Show>
-                <Show when={!props.verticalTabs}>
-                  <div class="relative z-20 flex shrink-0 items-center justify-end gap-0 overflow-visible">
-                    <TitlebarItems items={titlebarItems} />
-                    <TitlebarRightMount />
-                  </div>
-                </Show>
+                <div class="relative z-20 flex shrink-0 items-center justify-end gap-0 overflow-visible">
+                  <TitlebarItems items={titlebarItems} />
+                  <TitlebarRightMount />
+                </div>
               </div>
             )
           }}
@@ -816,14 +745,34 @@ function ChannelIndicator(props: { horizontal?: boolean; sidebar?: boolean }) {
         aria-label={debug()?.label}
         aria-pressed={debug()?.pressed}
       >
-        <img
-          src={channel === "beta" ? betaIcon : devIcon}
-          alt={debug() ? "" : label()}
-          class="shrink-0 rounded-[4px] shadow-[var(--v2-elevation-raised)]"
+        <span
+          role={debug() ? undefined : "img"}
+          aria-label={debug() ? undefined : label()}
+          class="flex shrink-0 items-center justify-center rounded-[4px] bg-v2-background-bg-layer-01"
           classList={{ "size-6": props.sidebar, "size-5": !props.sidebar }}
-          draggable={false}
-        />
+        >
+          <Mark class="h-3 w-auto" />
+        </span>
       </Dynamic>
     </Tooltip>
+  )
+}
+
+function TitlebarCrumb(props: { title: string; project?: string; branch?: string }) {
+  return (
+    <div data-slot="titlebar-crumb" class="flex min-w-0 flex-1 items-center gap-2 px-1 text-[13px] leading-4">
+      <span dir="auto" class="min-w-0 truncate text-v2-text-text-base [font-weight:530]">
+        {props.title}
+      </span>
+      <Show when={props.project}>
+        <span class="min-w-0 shrink truncate text-v2-text-text-faint">{props.project}</span>
+      </Show>
+      <Show when={props.branch}>
+        <span class="flex min-w-0 shrink-[2] items-center gap-1 text-v2-text-text-faint">
+          <Icon name="branch" size="small" class="shrink-0" />
+          <span class="truncate">{props.branch}</span>
+        </span>
+      </Show>
+    </div>
   )
 }

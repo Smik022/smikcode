@@ -9,8 +9,20 @@ import { createHomeScrollController } from "./scroll"
 import { createHomeSessionSearchController } from "./sessions/search"
 import { createHomeSessionsController } from "./sessions/controller"
 import { HomeSessions } from "./sessions/region"
+import { HomeStart } from "./start"
 
+/** Desktop opens a draft session; narrow screens keep the list of projects and sessions as their start page. */
 export function Home() {
+  const mobile = createMediaQuery("(max-width: 767px)")
+
+  return (
+    <Show when={mobile()} fallback={<HomeStart />}>
+      <HomeList />
+    </Show>
+  )
+}
+
+function HomeList() {
   const mobile = createMediaQuery("(max-width: 767px)")
   const home = createHomeController()
   const projects = createHomeProjectsController(home)

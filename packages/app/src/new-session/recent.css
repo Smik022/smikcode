@@ -1,0 +1,80 @@
+[data-component="recent-sessions"] {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  font-size: 13px;
+  line-height: var(--line-height-compact);
+}
+
+[data-slot="recent-sessions-title"] {
+  margin: 0 0 4px;
+  padding-inline: 10px;
+  color: var(--v2-text-text-faint);
+  font-size: 12px;
+  font-weight: 530;
+  line-height: var(--line-height-compact);
+}
+
+[data-slot="recent-session"] {
+  display: flex;
+  height: 32px;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  padding-inline: 10px;
+  border: 0;
+  border-radius: var(--radius-md, 8px);
+  background: transparent;
+  color: var(--v2-text-text-muted);
+  font: inherit;
+  text-align: start;
+  cursor: default;
+  transition:
+    background-color 120ms ease-in-out,
+    color 120ms ease-in-out;
+}
+
+[data-slot="recent-session"]:hover,
+[data-slot="recent-session"]:focus-visible {
+  background: var(--v2-overlay-simple-overlay-hover);
+  color: var(--v2-text-text-base);
+  outline: none;
+}
+
+[data-slot="recent-session-title"] {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-slot="recent-session-project"],
+[data-slot="recent-session-time"] {
+  flex: none;
+  color: var(--v2-text-text-faint);
+}
+
+[data-slot="recent-session-project"] {
+  max-width: 30%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-slot="recent-session-time"] {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+[data-slot="recent-dot"] {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 999px;
+  background: transparent;
+}
+
+[data-slot="recent-dot"][data-state] {
+  background: var(--v2-icon-icon-accent);
+}

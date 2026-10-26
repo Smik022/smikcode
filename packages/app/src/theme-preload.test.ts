@@ -18,24 +18,15 @@ beforeEach(() => {
 })
 
 describe("theme preload", () => {
-  test.each([
-    { stored: undefined, systemDark: false, scheme: "light", background: "#fafafa" },
-    { stored: "dark", systemDark: false, scheme: "dark", background: "#080808" },
-    { stored: "light", systemDark: true, scheme: "light", background: "#fafafa" },
-    { stored: "system", systemDark: true, scheme: "dark", background: "#080808" },
-  ])(
-    "paints the default theme in $scheme for stored scheme $stored (system dark: $systemDark)",
-    ({ stored, systemDark, scheme, background }) => {
-      setSystemDark(systemDark)
+  test("paints the dark-only default theme in dark on a first launch, even when the system and stored scheme are light", () => {
+    setSystemDark(false)
+    localStorage.setItem("opencode-color-scheme", "light")
+    run()
 
-      if (stored) localStorage.setItem("opencode-color-scheme", stored)
-      run()
-
-      expect(document.documentElement.dataset.theme).toBe("smik-neon")
-      expect(document.documentElement.dataset.colorScheme).toBe(scheme)
-      expect(document.documentElement.style.backgroundColor).toBe(background)
-    },
-  )
+    expect(document.documentElement.dataset.theme).toBe("hackerman")
+    expect(document.documentElement.dataset.colorScheme).toBe("dark")
+    expect(document.documentElement.style.backgroundColor).toBe("#080808")
+  })
 
   test.each([
     { scheme: undefined, key: "opencode-theme-css-light", css: "--background-base:#fff;", expected: "light" },

@@ -1,7 +1,7 @@
 import { resolveThemeVariant } from "@opencode/ui/theme/resolve"
 import type { DesktopTheme } from "@opencode/ui/theme/types"
 import { nativeTheme } from "electron"
-import defaultThemeJson from "../../../../ui/src/theme/themes/smik-neon.json"
+import defaultThemeJson from "../../../../ui/src/theme/themes/hackerman.json"
 import { BACKGROUND_COLOR_KEY } from "../storage/keys"
 import { getStore } from "../storage/store"
 

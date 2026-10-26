@@ -4,7 +4,7 @@ import { createEffect, onMount } from "solid-js"
 import { createStore } from "solid-js/store"
 import { makeEventListener } from "@solid-primitives/event-listener"
 import { createSimpleContext } from "../context/helper"
-import neonThemeJson from "./themes/smik-neon.json"
+import hackermanThemeJson from "./themes/hackerman.json"
 import { resolveThemeVariant, themeToCss } from "./resolve"
 import { applySkinAttributes, DEFAULT_THEME_ID, resolveSkin, SKIN_THEME_IDS } from "./skin"
 import { resolveThemeVariantV2, themeV2ToCss } from "./v2/resolve"
@@ -94,7 +94,7 @@ const names: Record<string, string> = {
   zenburn: "Zenburn",
 }
 
-const defaultTheme = neonThemeJson as DesktopTheme
+const defaultTheme = hackermanThemeJson as DesktopTheme
 
 function resolveStoredTheme(id: string | null | undefined, registered?: Record<string, DesktopTheme>) {
   if (id === DEFAULT_THEME_ID || (id && (knownThemes().has(id) || registered?.[id]))) return id

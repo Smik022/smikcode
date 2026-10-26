@@ -1,9 +1,9 @@
 import type { DesktopTheme, ThemeSkinColors } from "./types"
 
 /** SmikCode skins, in the order they are listed everywhere themes are listed. */
-export const SKIN_THEME_IDS = ["smik-neon", "smik-mono", "smik-workshop", "smik-crt"] as const
+export const SKIN_THEME_IDS = ["hackerman", "smik-neon", "smik-mono", "smik-workshop", "smik-crt"] as const
 
-export const DEFAULT_THEME_ID = "smik-neon"
+export const DEFAULT_THEME_ID = "hackerman"
 
 /** Every attribute a skin may set on <html>, so switching themes can clear stale ones. */
 export const SKIN_ATTRIBUTES = [

@@ -1,6 +1,8 @@
 ;(function () {
   var key = "opencode-theme-id"
-  var themeId = localStorage.getItem(key) || "smik-neon"
+  var storedThemeId = localStorage.getItem(key)
+  // The default theme (Hackerman) is dark-only, so a first launch with no saved theme is dark even on a light system.
+  var themeId = storedThemeId || "hackerman"
   var root = document.documentElement
 
   // data-skin-* layout attributes (and a forced data-color-scheme for dark-only themes) cached by the theme provider.
@@ -13,7 +15,7 @@
   var forced = attributes["data-color-scheme"]
   var isDark = forced
     ? forced === "dark"
-    : scheme === "dark" || (scheme === "system" && matchMedia("(prefers-color-scheme: dark)").matches)
+    : !storedThemeId || scheme === "dark" || (scheme === "system" && matchMedia("(prefers-color-scheme: dark)").matches)
   var mode = isDark ? "dark" : "light"
 
   Object.keys(attributes).forEach(function (name) {

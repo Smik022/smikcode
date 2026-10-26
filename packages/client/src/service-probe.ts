@@ -37,7 +37,8 @@ function fail(message: string) {
 
 /** The default registration file. */
 export function fallback() {
-  return join(process.env["XDG_STATE_HOME"] ?? join(homedir(), ".local", "state"), "opencode", "service.json")
+  // SmikCode keeps its state under `smikcode` (Brand.app in @opencode/util; this package does not depend on util).
+  return join(process.env["XDG_STATE_HOME"] ?? join(homedir(), ".local", "state"), "smikcode", "service.json")
 }
 
 /** Whether two registrations describe the same service instance. */

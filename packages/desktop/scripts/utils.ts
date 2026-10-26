@@ -111,7 +111,8 @@ export async function copyBuiltCliToResources(root: string, dest = windowsify("r
 // 200 MB binary on first launch.
 async function copyCliToResources(pkg: string, dest: string) {
   const cli = getCurrentCli()
-  await copyFile(join(pkg, "bin", cli.os === "win32" ? "opencode.exe" : "opencode"), dest)
+  // SmikCode's CLI build names its executable after Brand.command (this package does not depend on @opencode/util).
+  await copyFile(join(pkg, "bin", cli.os === "win32" ? "smikcode.exe" : "smikcode"), dest)
   await prepareCli(dest)
 
   const manifest = Option.getOrUndefined(

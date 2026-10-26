@@ -8,6 +8,7 @@ import { ConfigAgent } from "@opencode/schema/config/agent"
 import { ConfigCommand } from "@opencode/schema/config/command"
 import { ConfigCompaction } from "@opencode/schema/config/compaction"
 import { ConfigFormatter } from "@opencode/schema/config/formatter"
+import { ConfigHooks } from "@opencode/schema/config/hooks"
 import { ConfigLSP } from "@opencode/schema/config/lsp"
 import { ConfigMedia } from "@opencode/schema/config/media"
 import { ConfigModel } from "@opencode/schema/config/model"
@@ -197,6 +198,7 @@ export function normalize(input: unknown): Result {
   normalizeWatcher(input, encoded, diagnostics)
   normalizeFormatter(input, encoded, diagnostics)
   normalizeLsp(input, encoded, diagnostics)
+  normalizeHooks(input, encoded, diagnostics)
 
   const model = own(input, "model")
     ? decodeValue(ConfigModel.Selection, input.model, ["model"], diagnostics)
@@ -525,6 +527,24 @@ function normalizeLsp(input: Record<string, unknown>, encoded: Record<string, un
   }
   const entries = decodeMap(input.lsp, ConfigLSP.Entry, ["lsp"], diagnostics, decodeEncoded)
   if (isRecord(input.lsp) && (!Object.keys(input.lsp).length || Object.keys(entries).length)) encoded.lsp = entries
+}
+
+function normalizeHooks(input: Record<string, unknown>, encoded: Record<string, unknown>, diagnostics: Diagnostic[]) {
+  if (!own(input, "hooks")) return
+  if (!isRecord(input.hooks)) {
+    invalid(["hooks"], diagnostics)
+    return
+  }
+  const hooks = input.hooks
+  // An event that is present but invalid is dropped on its own, so one bad entry does not disable the rest.
+  encoded.hooks = Object.fromEntries(
+    Object.keys(ConfigHooks.Info.fields)
+      .filter((event) => own(hooks, event))
+      .map((event) => [
+        event,
+        decodeList(hooks[event], ConfigHooks.Matcher, ["hooks", event], diagnostics, decodeEncoded),
+      ]),
+  )
 }
 
 function migrateTools(value: unknown, diagnostics: Diagnostic[]) {

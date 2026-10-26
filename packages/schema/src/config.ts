@@ -10,6 +10,7 @@ import { ConfigCompaction } from "./config/compaction.js"
 import { ConfigCommand } from "./config/command.js"
 import { ConfigExperimental } from "./config/experimental.js"
 import { ConfigFormatter } from "./config/formatter.js"
+import { ConfigHooks } from "./config/hooks.js"
 import { ConfigLSP } from "./config/lsp.js"
 import { ConfigMCP } from "./config/mcp.js"
 import { ConfigModel } from "./config/model.js"
@@ -72,6 +73,9 @@ export class Info extends Schema.Class<Info>("Config.Info")({
   }),
   lsp: ConfigLSP.Info.pipe(optional).annotate({
     description: "Enable built-in language servers or configure server overrides",
+  }),
+  hooks: ConfigHooks.Info.pipe(optional).annotate({
+    description: "Shell commands that run at tool, prompt, stop and session start events",
   }),
   media: ConfigMedia.Info.pipe(optional).annotate({
     description: "Media processing configuration",

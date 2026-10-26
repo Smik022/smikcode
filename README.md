@@ -8,7 +8,7 @@ SmikCode is an AI coding agent for your terminal, browser and desktop. It reads 
 
 - **Its own identity:** the `smikcode` command, the SmikCode name throughout the UI, and its own config and data folders, server port and desktop app ID. It installs side by side with opencode and never shares state with it.
 - **Its own look:** four switchable skins in the terminal UI, web app and desktop app. A skin changes layout, borders, labels and logo as well as colors (see [Skins](#skins)).
-- **Planned improvements:** LSP diagnostics after edits, a todo/plan tool, trimming of old tool output in long sessions, and local session export.
+- **Extra agent features:** LSP diagnostics after edits, a todo tool, trimming of old tool output in long sessions, local session export, [lifecycle hooks](#lifecycle-hooks), [persistent memory](#memory) and [CLAUDE.md support](#claudemd-support), the last three borrowed from Claude Code and Codex.
 
 ## Run from source
 
@@ -84,6 +84,45 @@ Turn this off with `"lsp": false`, or add and override servers:
   }
 }
 ```
+
+### Lifecycle hooks
+
+Hooks run your own shell commands at set points, in the same format as Claude Code's `hooks` setting, so existing hook scripts carry over. Put them in `smikcode.json`:
+
+```jsonc
+{
+  "hooks": {
+    "PreToolUse": [{ "matcher": "Bash", "hooks": [{ "command": "./scripts/check-command.sh" }] }],
+    "PostToolUse": [{ "matcher": "Edit|Write", "hooks": [{ "command": "npx prettier --check ." }] }],
+    "UserPromptSubmit": [{ "hooks": [{ "command": "git status --short" }] }],
+    "Stop": [{ "hooks": [{ "command": "./scripts/run-tests.sh", "timeout": 120 }] }],
+    "SessionStart": [{ "hooks": [{ "command": "cat docs/CONTEXT.md" }] }]
+  }
+}
+```
+
+| Event | Runs | What a hook can do |
+|---|---|---|
+| `PreToolUse` | Before a tool call | Exit `2` to block the call; stderr is sent to the model |
+| `PostToolUse` | After a tool call | Exit `2` to send stderr to the model as feedback |
+| `UserPromptSubmit` | When you send a prompt | Print text to add it as context |
+| `Stop` | When the agent finishes | Exit `2` to make it keep going (at most 3 times in a row) |
+| `SessionStart` | When a session is created | Print text to add it as context |
+
+The command gets the event as JSON on stdin (`hook_event_name`, `session_id`, `cwd`, `tool_name`, `tool_input`, `prompt`, ...) and the `SMIKCODE_PROJECT_DIR` and `CLAUDE_PROJECT_DIR` variables. `matcher` is a regular expression on the tool name; Claude Code names (`Bash`, `Edit`, `Write`, `Read`, `Glob`, `Grep`, `WebFetch`, `Task`) match the matching SmikCode tools. A hook can also print JSON such as `{"decision": "block", "reason": "..."}` or `{"hookSpecificOutput": {"additionalContext": "..."}}`. Hooks that crash, time out (60 seconds by default) or exit with any other code never block the agent.
+
+### Memory
+
+Ask the agent to remember something ("always use pnpm", "the staging API is at ...") and it saves it with the `memory` tool. Saved facts load into every later session as instructions.
+
+- **User memory** (every project): `~/.config/smikcode/memory.md`
+- **Project memory** (this project only, kept out of your repository): `~/.local/share/smikcode/memory/<project>.md`
+
+They are plain Markdown with one bullet per fact, so you can edit them by hand. Ask the agent to "forget" a fact to remove it.
+
+### CLAUDE.md support
+
+SmikCode reads `AGENTS.md` as its project instructions. Where a directory has no `AGENTS.md`, it reads that directory's `CLAUDE.md` instead, and it always adds `CLAUDE.local.md` (meant for personal notes you don't commit). Your global `~/.claude/CLAUDE.md` is used when `~/.config/smikcode/AGENTS.md` doesn't exist.
 
 ## Exporting a session
 

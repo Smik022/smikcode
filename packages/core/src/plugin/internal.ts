@@ -18,6 +18,7 @@ import { ConfigAgentPlugin } from "../config/plugin/agent.js"
 import { ConfigCommandPlugin } from "../config/plugin/command.js"
 import { ConfigCompactionPlugin } from "../config/plugin/compaction.js"
 import { ConfigFormatterPlugin } from "../config/plugin/formatter.js"
+import { ConfigHooksPlugin } from "../config/plugin/hooks.js"
 import { ConfigLspPlugin } from "../config/plugin/lsp.js"
 import { ConfigImagePlugin } from "../config/plugin/image.js"
 import { ConfigInstructionPlugin } from "../config/plugin/instruction.js"
@@ -77,6 +78,7 @@ import { GrepTool } from "../tool/plugin/grep.js"
 import { McpResourceTools } from "../tool/plugin/mcp-resource.js"
 import { OpenCodeTools } from "../tool/plugin/opencode.js"
 import { QuestionTool } from "../tool/plugin/question.js"
+import { MemoryTool } from "../tool/plugin/memory.js"
 import { TodoTool } from "../tool/plugin/todo.js"
 import { ReadToolFileSystem } from "../tool/read-filesystem.js"
 import { ReadTool } from "../tool/plugin/read.js"
@@ -245,6 +247,7 @@ const pre = [
   McpResourceTools.Plugin,
   QuestionTool.Plugin,
   TodoTool.Plugin,
+  MemoryTool.Plugin,
   ReadTool.Plugin,
   ShellTool.Plugin,
   SkillTool.Plugin,
@@ -264,6 +267,7 @@ const post = [
   ConfigCompactionPlugin.Plugin,
   ConfigFormatterPlugin.Plugin,
   ConfigLspPlugin.Plugin,
+  ConfigHooksPlugin.Plugin,
   ConfigImagePlugin.Plugin,
   ConfigLocationWatcherPlugin.Plugin,
   ConfigShellPlugin.Plugin,

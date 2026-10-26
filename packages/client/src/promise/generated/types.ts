@@ -2215,6 +2215,25 @@ export type ConfigEntry =
                     initialization?: { [x: string]: JsonValue }
                   }
             }
+        hooks?: {
+          PreToolUse?: Array<{
+            matcher?: string
+            hooks: Array<{ type?: "command"; command: string; timeout?: number }>
+          }>
+          PostToolUse?: Array<{
+            matcher?: string
+            hooks: Array<{ type?: "command"; command: string; timeout?: number }>
+          }>
+          UserPromptSubmit?: Array<{
+            matcher?: string
+            hooks: Array<{ type?: "command"; command: string; timeout?: number }>
+          }>
+          Stop?: Array<{ matcher?: string; hooks: Array<{ type?: "command"; command: string; timeout?: number }> }>
+          SessionStart?: Array<{
+            matcher?: string
+            hooks: Array<{ type?: "command"; command: string; timeout?: number }>
+          }>
+        }
         media?: {
           image?: { auto_resize?: boolean; max_width?: number; max_height?: number; max_base64_bytes?: number }
         }
@@ -2254,7 +2273,7 @@ export type ConfigEntry =
                 }
           }
         }
-        compaction?: { auto?: boolean; keep?: { tokens?: number }; buffer?: number }
+        compaction?: { auto?: boolean; keep?: { tokens?: number }; buffer?: number; prune?: boolean }
         skills?: Array<string>
         commands?: {
           [x: string]: {

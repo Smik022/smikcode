@@ -29,5 +29,10 @@ export function render(prompt: string, tools: string[]) {
       "- For work with three or more steps, keep a checklist with the todo tool and update it as you go so the user can follow your progress.",
     )
   }
+  if (tools.includes("memory")) {
+    instructions.push(
+      "- When the user asks you to remember something, or states a lasting preference or convention, save it with the memory tool so it carries over to future sessions.",
+    )
+  }
   return prompt.replace("${OPENCODE_TOOL_GUIDANCE}", instructions.join("\n"))
 }

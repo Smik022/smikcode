@@ -53,7 +53,8 @@ const instructionLayer = (input: {
         Global.node.replace(
           input.config || input.home
             ? Global.layerWith({
-                ...(input.config ? { config: input.config } : {}),
+                // Project memory lives under the data directory, which must not leak in from the real machine.
+                ...(input.config ? { config: input.config, data: path.join(input.config, "data") } : {}),
                 ...(input.home ? { home: input.home } : {}),
               })
             : tempGlobalLayer,
@@ -194,6 +195,13 @@ describe("InstructionDiscovery", () => {
   )
 })
 
+// Every project directory is watched for each memory file name, in lookup order.
+const memoryFiles = (directory: string) =>
+  ["AGENTS.md", "CLAUDE.md", "CLAUDE.local.md"].map((name) => ({
+    path: path.join(directory, name),
+    type: "file" as const,
+  }))
+
 describe("ConfigInstructionPlugin.Plugin", () => {
   it.live("loads global and upward project files and rescans them on change", () =>
     Effect.acquireRelease(
@@ -226,11 +234,14 @@ describe("ConfigInstructionPlugin.Plugin", () => {
           const watcher = yield* Watcher.Test
           expect(yield* watcher.subscriptions()).toEqual([
             { path: globalFile, type: "file" },
-            { path: packageFile, type: "file" },
-            { path: path.join(project, "packages", "AGENTS.md"), type: "file" },
-            { path: projectFile, type: "file" },
-            { path: sharedFile, type: "file" },
-            { path: path.join(home, "AGENTS.md"), type: "file" },
+            { path: path.join(home, ".claude", "CLAUDE.md"), type: "file" },
+            { path: path.join(global, "memory.md"), type: "file" },
+            { path: path.join(global, "data", "memory", "global.md"), type: "file" },
+            ...memoryFiles(directory),
+            ...memoryFiles(path.join(project, "packages")),
+            ...memoryFiles(project),
+            ...memoryFiles(shared),
+            ...memoryFiles(home),
           ])
           expect(yield* watcher.subscriptions()).not.toContainEqual({
             path: path.join(tmp.path, "AGENTS.md"),
@@ -442,6 +453,78 @@ describe("ConfigInstructionPlugin.Plugin", () => {
     ),
   )
 
+  it.live("loads user memory saved by the memory tool next to the global instructions", () =>
+    Effect.acquireRelease(
+      Effect.promise(() => tmpdir()),
+      (tmp) => Effect.promise(() => tmp[Symbol.asyncDispose]()),
+    ).pipe(
+      Effect.flatMap((tmp) => {
+        const global = path.join(tmp.path, "global")
+        const memory = path.join(global, "memory.md")
+        return Effect.gen(function* () {
+          yield* Effect.promise(async () => {
+            await fs.mkdir(global, { recursive: true })
+            await fs.writeFile(memory, "# Memory\n\n- Use pnpm\n")
+          })
+          const discovery = yield* start()
+          expect((yield* readInitial(yield* discovery.load())).text).toBe(
+            `Instructions from: ${memory}\n# Memory\n\n- Use pnpm\n`,
+          )
+        }).pipe(
+          Effect.provide(
+            instructionLayer({
+              config: global,
+              locationServiceLayer: Layer.succeed(
+                Location.Service,
+                Location.Service.of(location({ directory: AbsolutePath.make(tmp.path) })),
+              ),
+            }),
+          ),
+        )
+      }),
+    ),
+  )
+
+  it.live("falls back to CLAUDE.md where there is no AGENTS.md and always adds CLAUDE.local.md", () =>
+    Effect.acquireRelease(
+      Effect.promise(() => tmpdir()),
+      (tmp) => Effect.promise(() => tmp[Symbol.asyncDispose]()),
+    ).pipe(
+      Effect.flatMap((tmp) => {
+        const project = path.join(tmp.path, "repo")
+        const nested = path.join(project, "app")
+        return Effect.gen(function* () {
+          yield* Effect.promise(async () => {
+            await fs.mkdir(nested, { recursive: true })
+            // The root has both files, so only AGENTS.md applies there.
+            await fs.writeFile(path.join(project, "AGENTS.md"), "agents")
+            await fs.writeFile(path.join(project, "CLAUDE.md"), "claude duplicate")
+            await fs.writeFile(path.join(nested, "CLAUDE.md"), "claude only")
+            await fs.writeFile(path.join(nested, "CLAUDE.local.md"), "personal")
+          })
+          const discovery = yield* start()
+          const text = (yield* readInitial(yield* discovery.load())).text
+          expect(text).toContain("agents")
+          expect(text).toContain("claude only")
+          expect(text).toContain("personal")
+          expect(text).not.toContain("claude duplicate")
+        }).pipe(
+          Effect.provide(
+            instructionLayer({
+              config: path.join(tmp.path, "global"),
+              locationServiceLayer: Layer.succeed(
+                Location.Service,
+                Location.Service.of(
+                  location({ directory: AbsolutePath.make(nested) }, { projectDirectory: AbsolutePath.make(project) }),
+                ),
+              ),
+            }),
+          ),
+        )
+      }),
+    ),
+  )
+
   it.live("discovers a newly created instruction file above the project root", () =>
     Effect.acquireRelease(
       Effect.promise(() => tmpdir()),
@@ -505,9 +588,12 @@ describe("ConfigInstructionPlugin.Plugin", () => {
           const watcher = yield* Watcher.Test
           expect(yield* watcher.subscriptions()).toEqual([
             { path: path.join(global, "AGENTS.md"), type: "file" },
-            { path: path.join(directory, "AGENTS.md"), type: "file" },
-            { path: path.join(project, "packages", "AGENTS.md"), type: "file" },
-            { path: path.join(project, "AGENTS.md"), type: "file" },
+            { path: path.join(home, ".claude", "CLAUDE.md"), type: "file" },
+            { path: path.join(global, "memory.md"), type: "file" },
+            { path: path.join(global, "data", "memory", "global.md"), type: "file" },
+            ...memoryFiles(directory),
+            ...memoryFiles(path.join(project, "packages")),
+            ...memoryFiles(project),
           ])
         }).pipe(
           Effect.provide(
@@ -551,7 +637,10 @@ describe("ConfigInstructionPlugin.Plugin", () => {
             const watcher = yield* Watcher.Test
             expect(yield* watcher.subscriptions()).toEqual([
               { path: path.join(global, "AGENTS.md"), type: "file" },
-              { path: path.join(directory, "AGENTS.md"), type: "file" },
+              { path: path.join(home, ".claude", "CLAUDE.md"), type: "file" },
+              { path: path.join(global, "memory.md"), type: "file" },
+              { path: path.join(global, "data", "memory", "global.md"), type: "file" },
+              ...memoryFiles(directory),
             ])
             expect((yield* readInitial(yield* discovery.load())).text).toBe(
               `Instructions from: ${path.join(directory, "AGENTS.md")}\nproject`,
@@ -732,7 +821,9 @@ describe("ConfigInstructionPlugin.Plugin", () => {
       )
 
       const repo = path.resolve("/repo")
-      expect(observed.values).toEqual([{ targets: ["AGENTS.md"], start: repo, stop: repo, type: "file" }])
+      expect(observed.values).toEqual([
+        { targets: ["AGENTS.md", "CLAUDE.md", "CLAUDE.local.md"], start: repo, stop: repo, type: "file" },
+      ])
     }),
   )
 })

@@ -4,7 +4,7 @@ import { define } from "@opencode/plugin/effect/plugin"
 import { FSUtil } from "@opencode/util/fs-util"
 import { Global } from "@opencode/util/global"
 import { sameDirectory } from "@opencode/util/path"
-import path, { dirname, join } from "path"
+import path, { basename, dirname, join } from "path"
 import { Effect, FiberMap, PubSub, Semaphore, Stream } from "effect"
 import { HttpClient, HttpClientRequest } from "effect/http"
 import { Config } from "../../config.js"
@@ -12,6 +12,7 @@ import { Watcher } from "../../filesystem/watcher.js"
 import { InstructionDiscovery } from "../../instruction-discovery.js"
 import { Instructions } from "../../instructions/index.js"
 import { Location } from "../../location.js"
+import { Memory } from "../../memory.js"
 
 type Loaded =
   | { readonly type: "available"; readonly files: InstructionDiscovery.File[] }
@@ -39,6 +40,12 @@ export const Plugin = define({
       const project = discovery.project && FSUtil.contains(root, start)
       const stop = FSUtil.contains(home, start) ? home : root
       const globalFile = yield* fs.resolve(join(global.config, "AGENTS.md"))
+      // Claude Code keeps its user memory here; it applies only when there is no global AGENTS.md of our own.
+      const claudeGlobalFile = yield* fs.resolve(join(global.home, ".claude", "CLAUDE.md"))
+      // Facts saved with the memory tool. They follow the user, so they load wherever global discovery does.
+      const memoryFiles = yield* Effect.forEach(Memory.Scopes, (scope) =>
+        fs.resolve(Memory.file({ config: global.config, data: global.data, projectID: location.project.id }, scope)),
+      )
       const loaded: { current: Loaded } = { current: { type: "available", files: [] } }
       const configured: { sources: string[]; remote: Map<string, InstructionDiscovery.File> } = {
         sources: [],
@@ -49,10 +56,10 @@ export const Plugin = define({
       // The ancestor walk can reach the global file when the location sits
       // beneath the global config dir; global: false excludes it there too.
       const candidates = [
-        ...(discovery.global ? [globalFile] : []),
+        ...(discovery.global ? [globalFile, claudeGlobalFile, ...memoryFiles] : []),
         ...(project
           ? ancestorDirectories(start, stop)
-              .map((directory) => join(directory, "AGENTS.md"))
+              .flatMap((directory) => FILE_NAMES.map((name) => join(directory, name)))
               .filter((file) => discovery.global || file !== globalFile)
           : []),
       ]
@@ -76,18 +83,20 @@ export const Plugin = define({
       })
 
       const globalSource = Effect.fn("ConfigInstructionPlugin.globalSource")(function* () {
-        if (!discovery.global || !(yield* fs.isFile(globalFile))) return []
-        const file = yield* read(globalFile)
-        return file instanceof InstructionDiscovery.File ? [file] : []
+        if (!discovery.global) return []
+        const own = (yield* fs.isFile(globalFile)) ? globalFile : claudeGlobalFile
+        const existing = yield* Effect.filter([own, ...memoryFiles], (filepath) => fs.isFile(filepath))
+        const files = yield* Effect.forEach(existing, read)
+        return files.filter((file) => file instanceof InstructionDiscovery.File)
       })
 
       const projectSource = Effect.fn("ConfigInstructionPlugin.projectSource")(function* () {
         if (!project) return []
         const walked = yield* Effect.forEach(
-          yield* fs.up({ targets: ["AGENTS.md"], start, stop, type: "file" }),
+          yield* fs.up({ targets: [...FILE_NAMES], start, stop, type: "file" }),
           fs.resolve,
         )
-        const discovered = new Set(walked.filter((file) => discovery.global || file !== globalFile))
+        const discovered = new Set(preferAgents(walked.filter((file) => discovery.global || file !== globalFile)))
         const files = yield* Effect.forEach(discovered, read, { concurrency: "unbounded" })
         if (files.some((file) => file === undefined)) return Instructions.unavailable
         return files.filter((file) => file instanceof InstructionDiscovery.File)
@@ -233,6 +242,15 @@ export const Plugin = define({
     )
   }),
 })
+
+// Project memory files, in the order they are looked up. CLAUDE.local.md is a personal, uncommitted file.
+const FILE_NAMES = ["AGENTS.md", "CLAUDE.md", "CLAUDE.local.md"] as const
+
+// A directory that has an AGENTS.md ignores its CLAUDE.md, since the two usually say the same thing.
+function preferAgents(files: readonly string[]) {
+  const agents = new Set(files.filter((file) => basename(file) === "AGENTS.md").map((file) => dirname(file)))
+  return files.filter((file) => basename(file) !== "CLAUDE.md" || !agents.has(dirname(file)))
+}
 
 // `start` keeps the client's spelling while `stop` may come from git, so a Windows drive
 // letter can differ only in case (`c:\repo` vs `C:\repo`). Compare the way FSUtil.contains

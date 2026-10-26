@@ -36,7 +36,7 @@
 
 [data-slot="recent-session"]:hover,
 [data-slot="recent-session"]:focus-visible {
-  background: var(--v2-overlay-simple-overlay-hover);
+  background: var(--calm-hover);
   color: var(--v2-text-text-base);
   outline: none;
 }

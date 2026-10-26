@@ -58,7 +58,8 @@
   padding-inline: 10px 8px;
   border: 0;
   border-radius: var(--radius-md, 8px);
-  background: var(--v2-background-bg-layer-01);
+  background: var(--calm-hover);
+  box-shadow: inset 0 0 0 1px var(--v2-border-border-muted);
   color: var(--v2-text-text-base);
   font: inherit;
   font-weight: 530;
@@ -67,7 +68,7 @@
 
 [data-action="sidebar-new-session"]:hover,
 [data-action="sidebar-new-session"]:focus-visible {
-  background: var(--v2-background-bg-layer-02);
+  background: var(--calm-active);
   outline: none;
 }
 
@@ -94,7 +95,7 @@
 
 [data-slot="sidebar-search"]:hover,
 [data-slot="sidebar-search"]:focus-within {
-  background: var(--v2-overlay-simple-overlay-hover);
+  background: var(--calm-hover);
 }
 
 [data-slot="sidebar-search"] input {
@@ -167,7 +168,7 @@
 
 [data-slot="sidebar-group-toggle"]:hover,
 [data-slot="sidebar-group-toggle"]:focus-visible {
-  background: var(--v2-overlay-simple-overlay-hover);
+  background: var(--calm-hover);
   outline: none;
 }
 
@@ -239,13 +240,13 @@
 
 [data-slot="sidebar-session-button"]:hover,
 [data-slot="sidebar-session-button"]:focus-visible {
-  background: var(--v2-overlay-simple-overlay-hover);
+  background: var(--calm-hover);
   color: var(--v2-text-text-base);
   outline: none;
 }
 
 [data-slot="sidebar-session"][data-active] [data-slot="sidebar-session-button"] {
-  background: var(--v2-background-bg-layer-01);
+  background: var(--calm-active);
   color: var(--v2-text-text-base);
 }
 
@@ -298,7 +299,7 @@
   align-items: center;
   padding-inline: 8px;
   border-radius: var(--radius-md, 8px);
-  background: var(--v2-background-bg-layer-01);
+  background: var(--calm-active);
 }
 
 /* Status dot: always takes its slot so titles line up; only drawn while running or unread. */
@@ -355,7 +356,7 @@
 [data-slot="sidebar-add-project-row"]:hover,
 [data-slot="sidebar-more"]:focus-visible,
 [data-slot="sidebar-add-project-row"]:focus-visible {
-  background: var(--v2-overlay-simple-overlay-hover);
+  background: var(--calm-hover);
   color: var(--v2-text-text-base);
   outline: none;
 }
@@ -402,7 +403,7 @@
 
 [data-slot="sidebar-footer"] button:hover,
 [data-slot="sidebar-footer"] button:focus-visible {
-  background: var(--v2-overlay-simple-overlay-hover);
+  background: var(--calm-hover);
   color: var(--v2-text-text-base);
   outline: none;
 }

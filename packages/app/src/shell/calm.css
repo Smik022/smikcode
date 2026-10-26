@@ -68,3 +68,9 @@ form[data-component="composer"]:focus-within {
 [data-slot="session-title-child"] {
   display: none;
 }
+
+/* Hover and selected fills for rows, readable on any theme because they follow the text colour. */
+:root {
+  --calm-hover: color-mix(in srgb, var(--v2-text-text-base) 6%, transparent);
+  --calm-active: color-mix(in srgb, var(--v2-text-text-base) 11%, transparent);
+}

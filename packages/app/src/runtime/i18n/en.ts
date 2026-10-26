@@ -732,7 +732,7 @@ export const dict = {
   "settings.preferences.description": "Customize preferences and theme and default behavior",
   "settings.appearance.description": "Customize theme and fonts",
   "settings.appearance.row.skin.title": "Skin",
-  "settings.appearance.row.skin.description": "Change colours, layout and logo style together",
+  "settings.appearance.row.skin.description": "Change colours and logo style together",
   "settings.appearance.row.skin.custom": "Custom theme",
   "settings.appearance.row.tabs.title": "Tabs",
   "settings.appearance.row.tabs.description": "Choose how session tabs are arranged",

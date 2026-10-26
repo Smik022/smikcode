@@ -299,6 +299,8 @@ function SessionRow(props: {
   const sidebar = useSidebar()
   const language = useLanguage()
   const title = createMemo(() => sessionLabel(props.record.session))
+  // A prop expression builds a computation when read; event handlers read this memo instead.
+  const editing = createMemo(() => props.editor)
   const session = () => props.record.session
   const updated = () => new Date(session().time.updated ?? session().time.created).toISOString()
 
@@ -386,7 +388,7 @@ function SessionRow(props: {
             <Menu.Content
               onCloseAutoFocus={(event) => {
                 // Rename moves focus into its editor; do not hand it back to the trigger.
-                if (props.editor) event.preventDefault()
+                if (editing()) event.preventDefault()
               }}
             >
               <Menu.Item onSelect={() => props.onEdit({ id: session().id, draft: title(), renaming: false })}>

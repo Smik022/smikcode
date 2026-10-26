@@ -1,10 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
   <defs>
-    <linearGradient id="smik" x1="7" y1="5" x2="25" y2="26" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#ff3fb4" />
-      <stop offset="1" stop-color="#22e4f0" />
-    </linearGradient>
+    <radialGradient id="bg" cx="50%" cy="42%" r="75%"><stop offset="0" stop-color="#0d1f12"/><stop offset="1" stop-color="#020503"/></radialGradient>
+    <linearGradient id="ink" gradientUnits="userSpaceOnUse" x1="0" y1="176" x2="0" y2="848"><stop offset="0" stop-color="#8dffb8"/><stop offset="1" stop-color="#00e65c"/></linearGradient>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="26"/></filter>
   </defs>
-  <rect width="32" height="32" rx="7" fill="#0a0f24" />
-  <path d="M10 5h3v3h-3zM13 5h3v3h-3zM16 5h3v3h-3zM19 5h3v3h-3zM22 5h3v3h-3zM7 8h3v3h-3zM10 8h3v3h-3zM7 11h3v3h-3zM10 11h3v3h-3zM10 14h3v3h-3zM13 14h3v3h-3zM16 14h3v3h-3zM19 14h3v3h-3zM19 17h3v3h-3zM22 17h3v3h-3zM19 20h3v3h-3zM22 20h3v3h-3zM7 23h3v3h-3zM10 23h3v3h-3zM13 23h3v3h-3zM16 23h3v3h-3zM19 23h3v3h-3z" fill="url(#smik)" shape-rendering="crispEdges" />
+  
+    <rect width="1024" height="1024" rx="228" fill="url(#bg)"/>
+    <rect x="6" y="6" width="1012" height="1012" rx="222" fill="none" stroke="#00ff66" stroke-opacity=".18" stroke-width="6"/>
+    <g fill="#00ff66" opacity=".55" filter="url(#glow)"><rect x="372" y="180" width="88" height="88" rx="10"/><rect x="468" y="180" width="88" height="88" rx="10"/><rect x="564" y="180" width="88" height="88" rx="10"/><rect x="660" y="180" width="88" height="88" rx="10"/><rect x="276" y="276" width="88" height="88" rx="10"/><rect x="276" y="372" width="88" height="88" rx="10"/><rect x="372" y="468" width="88" height="88" rx="10"/><rect x="468" y="468" width="88" height="88" rx="10"/><rect x="564" y="468" width="88" height="88" rx="10"/><rect x="660" y="564" width="88" height="88" rx="10"/><rect x="660" y="660" width="88" height="88" rx="10"/><rect x="276" y="756" width="88" height="88" rx="10"/><rect x="372" y="756" width="88" height="88" rx="10"/><rect x="468" y="756" width="88" height="88" rx="10"/><rect x="564" y="756" width="88" height="88" rx="10"/></g>
+    <g fill="url(#ink)"><rect x="372" y="180" width="88" height="88" rx="10"/><rect x="468" y="180" width="88" height="88" rx="10"/><rect x="564" y="180" width="88" height="88" rx="10"/><rect x="660" y="180" width="88" height="88" rx="10"/><rect x="276" y="276" width="88" height="88" rx="10"/><rect x="276" y="372" width="88" height="88" rx="10"/><rect x="372" y="468" width="88" height="88" rx="10"/><rect x="468" y="468" width="88" height="88" rx="10"/><rect x="564" y="468" width="88" height="88" rx="10"/><rect x="660" y="564" width="88" height="88" rx="10"/><rect x="660" y="660" width="88" height="88" rx="10"/><rect x="276" y="756" width="88" height="88" rx="10"/><rect x="372" y="756" width="88" height="88" rx="10"/><rect x="468" y="756" width="88" height="88" rx="10"/><rect x="564" y="756" width="88" height="88" rx="10"/></g>
 </svg>

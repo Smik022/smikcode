@@ -10,10 +10,10 @@
   } catch (error) {}
 
   var scheme = localStorage.getItem("opencode-color-scheme") || "system"
-  var isDark =
-    attributes["data-color-scheme"] === "dark" ||
-    scheme === "dark" ||
-    (scheme === "system" && matchMedia("(prefers-color-scheme: dark)").matches)
+  var forced = attributes["data-color-scheme"]
+  var isDark = forced
+    ? forced === "dark"
+    : scheme === "dark" || (scheme === "system" && matchMedia("(prefers-color-scheme: dark)").matches)
   var mode = isDark ? "dark" : "light"
 
   Object.keys(attributes).forEach(function (name) {

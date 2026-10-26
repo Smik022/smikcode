@@ -123,21 +123,6 @@
     }
   },
   "skin": {
-    "radius": 0,
-    "panelBorder": "none",
-    "panelFill": "flat",
-    "divider": "─",
-    "header": "status",
-    "headerLabel": "SMIKCODE",
-    "sidebar": "right",
-    "roleLabels": {
-      "user": "you",
-      "assistant": "smik"
-    },
-    "tool": {
-      "style": "glyph",
-      "marker": "·"
-    },
     "logo": "rule",
     "font": "default"
   }

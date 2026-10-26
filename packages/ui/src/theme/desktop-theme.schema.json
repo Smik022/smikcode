@@ -31,6 +31,10 @@
       "type": "boolean",
       "description": "The theme only has a dark look: the dark variant is applied whatever the colour scheme"
     },
+    "lightOnly": {
+      "type": "boolean",
+      "description": "The theme only has a light look: the light variant is applied whatever the colour scheme"
+    },
     "skin": {
       "$ref": "#/definitions/ThemeSkin",
       "description": "Optional non-colour layout tokens; themes without a skin keep the default layout"

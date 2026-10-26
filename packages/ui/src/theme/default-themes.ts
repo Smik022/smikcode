@@ -3,6 +3,9 @@ import smikNeonThemeJson from "./themes/smik-neon.json"
 import smikMonoThemeJson from "./themes/smik-mono.json"
 import smikWorkshopThemeJson from "./themes/smik-workshop.json"
 import smikCrtThemeJson from "./themes/smik-crt.json"
+import hackermanThemeJson from "./themes/hackerman.json"
+import tokyonightLightThemeJson from "./themes/tokyonight-light.json"
+import claudeThemeJson from "./themes/claude.json"
 import oc2ThemeJson from "./themes/oc-2.json"
 import amoledThemeJson from "./themes/amoled.json"
 import auraThemeJson from "./themes/aura.json"
@@ -47,6 +50,12 @@ export const smikMonoTheme = smikMonoThemeJson as DesktopTheme
 export const smikWorkshopTheme = smikWorkshopThemeJson as DesktopTheme
 
 export const smikCrtTheme = smikCrtThemeJson as DesktopTheme
+
+export const hackermanTheme = hackermanThemeJson as DesktopTheme
+
+export const tokyonightLightTheme = tokyonightLightThemeJson as DesktopTheme
+
+export const claudeTheme = claudeThemeJson as DesktopTheme
 
 export const oc2Theme = oc2ThemeJson as DesktopTheme
 
@@ -126,6 +135,9 @@ export const DEFAULT_THEMES: Record<string, DesktopTheme> = {
   "smik-mono": smikMonoTheme,
   "smik-workshop": smikWorkshopTheme,
   "smik-crt": smikCrtTheme,
+  hackerman: hackermanTheme,
+  "tokyonight-light": tokyonightLightTheme,
+  claude: claudeTheme,
   "oc-2": oc2Theme,
   amoled: amoledTheme,
   aura: auraTheme,

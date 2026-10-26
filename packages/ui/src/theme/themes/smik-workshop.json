@@ -123,20 +123,6 @@
     }
   },
   "skin": {
-    "radius": 0,
-    "panelBorder": "square",
-    "panelFill": "fill",
-    "divider": "━",
-    "header": "none",
-    "sidebar": "left",
-    "roleLabels": {
-      "user": "you ▸",
-      "assistant": "smik ▸"
-    },
-    "tool": {
-      "style": "glyph",
-      "marker": "▪"
-    },
     "logo": "slab",
     "font": "default"
   }

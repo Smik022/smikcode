@@ -96,6 +96,8 @@ export interface DesktopTheme {
   dark: ThemeVariant
   /** The theme only has a dark look: the dark variant is applied whatever the colour scheme. */
   darkOnly?: boolean
+  /** The theme only has a light look: the light variant is applied whatever the colour scheme. */
+  lightOnly?: boolean
   skin?: ThemeSkin
 }
 

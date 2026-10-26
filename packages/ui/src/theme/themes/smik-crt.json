@@ -124,26 +124,7 @@
     }
   },
   "skin": {
-    "radius": 0,
-    "panelBorder": "double",
-    "panelFill": "fill",
-    "divider": "▒",
-    "header": "banner",
-    "headerLabel": "█▓▒░ SMIK ░▒▓█",
-    "sidebar": "right",
-    "roleLabels": {
-      "user": "USER:",
-      "assistant": "SMIK:"
-    },
-    "tool": {
-      "style": "tag",
-      "ok": "[OK]",
-      "error": "[ERR]",
-      "running": "[RUN]"
-    },
-    "promptPrefix": "SMIK> ",
     "logo": "phosphor",
-    "font": "mono",
-    "scanlines": true
+    "font": "mono"
   }
 }

@@ -128,20 +128,6 @@
     }
   },
   "skin": {
-    "radius": 14,
-    "panelBorder": "rounded",
-    "panelFill": "fill",
-    "divider": "─",
-    "header": "none",
-    "sidebar": "right",
-    "roleLabels": {
-      "user": "◆ you",
-      "assistant": "◇ smik"
-    },
-    "tool": {
-      "style": "icons"
-    },
-    "promptLabels": true,
     "logo": "gradient",
     "font": "default"
   }

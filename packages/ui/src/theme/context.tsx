@@ -152,7 +152,9 @@ function getSystemMode(): "light" | "dark" {
 }
 
 function themeMode(theme: DesktopTheme | undefined, mode: "light" | "dark") {
-  return theme?.darkOnly ? "dark" : mode
+  if (theme?.darkOnly) return "dark"
+
+  return theme?.lightOnly ? "light" : mode
 }
 
 function themeCss(theme: DesktopTheme, mode: "light" | "dark") {
@@ -191,12 +193,13 @@ function applyThemeCss(theme: DesktopTheme, themeId: string, mode: "light" | "da
 // packages/app/public/oc-theme-preload.js paints these before the app script runs. Previews are not cached.
 function cacheThemeVariants(theme: DesktopTheme) {
   write(STORAGE_KEYS.THEME_CSS_LIGHT, themeCss(theme, themeMode(theme, "light")))
-  write(STORAGE_KEYS.THEME_CSS_DARK, themeCss(theme, "dark"))
+  write(STORAGE_KEYS.THEME_CSS_DARK, themeCss(theme, themeMode(theme, "dark")))
   write(
     STORAGE_KEYS.THEME_ATTRIBUTES,
     JSON.stringify({
       ...resolveSkin(theme, "dark").attributes,
       ...(theme.darkOnly ? { "data-color-scheme": "dark" } : {}),
+      ...(theme.lightOnly ? { "data-color-scheme": "light" } : {}),
     }),
   )
 }

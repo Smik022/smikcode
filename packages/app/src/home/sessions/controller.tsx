@@ -147,39 +147,42 @@ export function createHomeSessionsController(home: HomeController, options?: { a
       })
   })
 
-  command.register("home.palette", () => [
-    {
-      id: "command.palette",
-      title: language.t("command.palette"),
-      hidden: true,
-      onSelect: async () => {
-        const conn = home.server.focused()
-
-        if (!conn) return
-        const ctx = home.server.focusedContext()
-
-        if (!ctx) return
-        const { HomeCommandPalette } = await import("./command-palette")
-        void dialog.show(() => (
-          <HomeCommandPalette
-            server={conn}
-            onSelectSession={(entry) => {
-              if (!entry.sessionID || !entry.directory || !entry.server) return
-              const sessionID = entry.sessionID
-              const server = entry.server
-              const directory = entry.project?.worktree ?? entry.directory
-              ctx.projects.open(directory)
-              ctx.projects.touch(directory)
-              void startTransition(() => {
-                const tab = tabs.addSessionTab({ server, sessionId: sessionID })
-                tabs.select(tab)
-              })
-            }}
-          />
-        ))
+  // The shell sidebar lists every project from outside Home, where routes register their own palette.
+  if (!options?.allProjects) {
+    command.register("home.palette", () => [
+      {
+        id: "command.palette",
+        title: language.t("command.palette"),
+        hidden: true,
+        onSelect: async () => {
+          const conn = home.server.focused()
+  
+          if (!conn) return
+          const ctx = home.server.focusedContext()
+  
+          if (!ctx) return
+          const { HomeCommandPalette } = await import("./command-palette")
+          void dialog.show(() => (
+            <HomeCommandPalette
+              server={conn}
+              onSelectSession={(entry) => {
+                if (!entry.sessionID || !entry.directory || !entry.server) return
+                const sessionID = entry.sessionID
+                const server = entry.server
+                const directory = entry.project?.worktree ?? entry.directory
+                ctx.projects.open(directory)
+                ctx.projects.touch(directory)
+                void startTransition(() => {
+                  const tab = tabs.addSessionTab({ server, sessionId: sessionID })
+                  tabs.select(tab)
+                })
+              }}
+            />
+          ))
+        },
       },
-    },
-  ])
+    ])
+  }
 
   const rename = async (server: ServerConnection.Key, session: SessionInfo, title: string) => {
     const conn = home.server.list().find((item) => ServerConnection.key(item) === server)

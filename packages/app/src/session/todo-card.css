@@ -1,0 +1,101 @@
+[data-component="todo-card"] {
+  width: min(720px, calc(100% - 32px));
+  margin: 0 auto 8px;
+  border-radius: 12px;
+  background: var(--v2-background-bg-layer-01);
+  color: var(--v2-text-text-muted);
+  font-size: 13px;
+  line-height: var(--line-height-compact);
+}
+
+[data-slot="todo-card-header"] {
+  display: flex;
+  width: 100%;
+  height: 32px;
+  align-items: center;
+  gap: 8px;
+  padding-inline: 12px 8px;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: default;
+}
+
+[data-slot="todo-card-header"]:hover {
+  color: var(--v2-text-text-base);
+}
+
+[data-slot="todo-card-title"] {
+  color: var(--v2-text-text-base);
+  font-weight: 530;
+}
+
+[data-slot="todo-card-progress"] {
+  flex: 1;
+  color: var(--v2-text-text-faint);
+}
+
+[data-slot="todo-card-chevron"] {
+  color: var(--v2-icon-icon-faint);
+  transition: transform 120ms ease-in-out;
+}
+
+[data-component="todo-card"][data-collapsed] [data-slot="todo-card-chevron"] {
+  transform: rotate(-90deg);
+}
+
+[data-slot="todo-card-list"] {
+  display: flex;
+  max-height: 168px;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0 12px 10px;
+  overflow-y: auto;
+  list-style: none;
+}
+
+[data-slot="todo-card-item"] {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+[data-slot="todo-card-marker"] {
+  display: flex;
+  width: 14px;
+  height: 20px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  color: var(--v2-icon-icon-accent);
+}
+
+[data-slot="todo-card-marker"]::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1.5px var(--v2-border-border-strong);
+}
+
+[data-slot="todo-card-item"][data-status="in_progress"] [data-slot="todo-card-marker"]::before {
+  box-shadow: inset 0 0 0 1.5px var(--v2-icon-icon-accent);
+  background: radial-gradient(circle, var(--v2-icon-icon-accent) 0 2.5px, transparent 3px);
+}
+
+[data-slot="todo-card-item"][data-status="completed"] [data-slot="todo-card-marker"]::before {
+  display: none;
+}
+
+[data-slot="todo-card-item"][data-status="in_progress"] {
+  color: var(--v2-text-text-base);
+}
+
+[data-slot="todo-card-item"][data-status="completed"] [data-slot="todo-card-text"] {
+  color: var(--v2-text-text-faint);
+  text-decoration: line-through;
+}

@@ -1,0 +1,70 @@
+/*
+ * Quiet chrome shared by every theme: hairline panel edges instead of raised shadows, a neutral user bubble and a
+ * round composer card. Unlayered on purpose, so these beat the layered component and utility styles they refine.
+ */
+
+/* Panels. */
+:is(
+    [data-component="session-panel-frame"],
+    [data-component="new-session"],
+    [data-slot="home-panel"],
+    [data-component="home-start"],
+    [data-slot="side-terminal-panel-presence"],
+    #review-panel
+  ) {
+  box-shadow: 0 0 0 1px var(--v2-border-border-muted);
+}
+
+/* The user's message is a quiet rounded bubble, never a tinted callout. */
+[data-component="user-message"] [data-slot="user-message-text"] {
+  --user-message-mention-prefix-color: var(--v2-text-text-accent);
+
+  padding: 8px 14px;
+  border-radius: 16px;
+  background: var(--v2-background-bg-layer-01);
+  color: var(--v2-text-text-base);
+}
+
+[data-component="user-message"][data-pending] [data-slot="user-message-text"] {
+  color: var(--v2-text-text-muted);
+}
+
+/* Composer: one rounded card; attach and mode on the left, model and the round send button on the right. */
+form[data-component="composer"] {
+  border-radius: 18px;
+  box-shadow: 0 0 0 1px var(--v2-border-border-muted);
+  transition: box-shadow 120ms ease-in-out;
+}
+
+form[data-component="composer"]:focus-within {
+  box-shadow: 0 0 0 1px var(--v2-border-border-strong);
+}
+
+[data-slot="composer-controls"] [data-component="tooltip-v2-trigger"]:has(> [data-action="composer-model"]) {
+  margin-inline-start: auto;
+}
+
+[data-slot="composer-actions"] [data-component="icon-button-v2"] {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+}
+
+[data-slot="composer-actions"] [data-component="icon-button-v2"]:not(:disabled) {
+  background: var(--v2-background-bg-accent);
+  color: var(--v2-text-text-inverse);
+}
+
+[data-slot="composer-actions"] [data-component="icon-button-v2"]:not(:disabled):hover {
+  background: var(--v2-text-text-accent);
+}
+
+/* Dividers inside the transcript stay hairlines whatever the theme's strong border colour is. */
+[data-slot="timeline-separator-rule"] {
+  background: var(--v2-border-border-base);
+}
+
+/* The titlebar already names the session. */
+[data-slot="session-title-child"] {
+  display: none;
+}

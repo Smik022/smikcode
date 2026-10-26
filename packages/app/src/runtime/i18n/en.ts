@@ -659,6 +659,8 @@ export const dict = {
   "sidebar.session.unread": "Needs attention",
   "sidebar.server.switch": "Switch server",
 
+  "session.todo.title": "Tasks",
+  "session.todo.progress": "{{done}} of {{total}} done",
   "start.greeting": "What should we work on?",
   "start.workingIn": "Working in",
   "start.recent": "Recent sessions",

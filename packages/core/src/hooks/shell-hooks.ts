@@ -1,8 +1,10 @@
 export * as ShellHooks from "./shell-hooks.js"
 
-import { Schema } from "effect"
+import { ConfigHooks } from "@opencode/schema/config/hooks"
+import { Option, Schema } from "effect"
 
-export type Event = "PreToolUse" | "PostToolUse" | "UserPromptSubmit" | "Stop" | "SessionStart"
+export const Events = ["PreToolUse", "PostToolUse", "UserPromptSubmit", "Stop", "SessionStart"] as const
+export type Event = (typeof Events)[number]
 
 /**
  * What a hook asked for, after reading its exit code and output. `context` is structured
@@ -100,4 +102,29 @@ export function select<
     .flatMap((entry) => entry.hooks)
     .forEach((hook) => unique.has(hook.command) || unique.set(hook.command, hook))
   return Array.from(unique.values())
+}
+
+const Settings = Schema.Struct({ hooks: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)) })
+const Entry = Schema.Struct({ matcher: Schema.optional(Schema.String), hooks: Schema.Array(Schema.Unknown) })
+const decodeSettings = Schema.decodeUnknownOption(Schema.fromJsonString(Settings))
+const decodeEntry = Schema.decodeUnknownOption(Entry)
+const decodeCommand = Schema.decodeUnknownOption(ConfigHooks.Command)
+
+/**
+ * The hooks for one event in the text of a Claude Code settings file. Everything else in the file is
+ * ignored, and so is any hook SmikCode cannot run (for example a "prompt" hook), so one unsupported
+ * entry never hides the rest.
+ */
+export function claudeSettings(text: string, event: Event) {
+  const settings = decodeSettings(text)
+  const entries = Option.isSome(settings) ? settings.value.hooks?.[event] : undefined
+  return (Array.isArray(entries) ? entries : []).flatMap((raw) => {
+    const entry = decodeEntry(raw)
+    if (Option.isNone(entry)) return []
+    const commands = entry.value.hooks.flatMap((item) => {
+      const command = decodeCommand(item)
+      return Option.isSome(command) ? [command.value] : []
+    })
+    return commands.length === 0 ? [] : [{ matcher: entry.value.matcher, hooks: commands }]
+  })
 }

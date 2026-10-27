@@ -8,7 +8,7 @@ SmikCode is an AI coding agent for your terminal, browser and desktop. It reads 
 
 - **Its own identity:** the `smikcode` command, the SmikCode name throughout the UI, and its own config and data folders, server port and desktop app ID. It installs side by side with opencode and never shares state with it.
 - **Its own look:** four switchable skins in the terminal UI, web app and desktop app. A skin changes layout, borders, labels and logo as well as colors (see [Skins](#skins)).
-- **Extra agent features:** LSP diagnostics after edits, a todo tool, trimming of old tool output in long sessions, local session export, [lifecycle hooks](#lifecycle-hooks), [persistent memory](#memory) and [CLAUDE.md support](#claudemd-support), the last three borrowed from Claude Code and Codex.
+- **Extra agent features:** LSP diagnostics after edits, a todo tool, trimming of old tool output in long sessions, local session export, [lifecycle hooks](#lifecycle-hooks), [persistent memory](#memory), [CLAUDE.md support](#claudemd-support), [permission modes](#permission-modes) and [goals](#goals), borrowed from Claude Code and Codex.
 
 ## Run from source
 
@@ -111,6 +111,8 @@ Hooks run your own shell commands at set points, in the same format as Claude Co
 
 The command gets the event as JSON on stdin (`hook_event_name`, `session_id`, `cwd`, `tool_name`, `tool_input`, `prompt`, ...) and the `SMIKCODE_PROJECT_DIR` and `CLAUDE_PROJECT_DIR` variables. `matcher` is a regular expression on the tool name; Claude Code names (`Bash`, `Edit`, `Write`, `Read`, `Glob`, `Grep`, `WebFetch`, `Task`) match the matching SmikCode tools. A hook can also print JSON such as `{"decision": "block", "reason": "..."}` or `{"hookSpecificOutput": {"additionalContext": "..."}}`. Hooks that crash, time out (60 seconds by default) or exit with any other code never block the agent.
 
+To reuse hooks you already have in Claude Code, set `"claude_hooks": true`. SmikCode then also runs the hooks in `~/.claude/settings.json`, `.claude/settings.json` and `.claude/settings.local.json` (only command hooks for the five events above; the rest of those files is ignored). It is off by default because a repository's `.claude/settings.json` would otherwise run commands the first time you open it.
+
 ### Memory
 
 Ask the agent to remember something ("always use pnpm", "the staging API is at ...") and it saves it with the `memory` tool. Saved facts load into every later session as instructions.
@@ -119,6 +121,26 @@ Ask the agent to remember something ("always use pnpm", "the staging API is at .
 - **Project memory** (this project only, kept out of your repository): `~/.local/share/smikcode/memory/<project>.md`
 
 They are plain Markdown with one bullet per fact, so you can edit them by hand. Ask the agent to "forget" a fact to remove it.
+
+### Permission modes
+
+Type `/mode` in any session (terminal, web or desktop) to see or change how much SmikCode asks before acting:
+
+| Mode | What happens |
+|---|---|
+| `default` | Asks before edits, commands and other protected actions |
+| `edits` | File edits are approved automatically; commands and everything else still ask |
+| `auto` | Everything that is not denied by a rule is approved automatically |
+
+`/mode edits` switches this session to accept-edits mode, and `/mode default` switches back. A mode only replaces a "would ask" with "allow": deny rules still win, so Plan mode stays read-only in every mode.
+
+### Goals
+
+`/goal <what you want done>` gives the agent a goal and lets it keep working until it is met, instead of stopping to ask you at every turn. When a run ends and the goal is not done, SmikCode sends a nudge to continue. The agent ends it by calling its `goal` tool with `complete` or `blocked`.
+
+- `/goal` shows the current goal; `/goal pause`, `/goal resume` and `/goal clear` manage it.
+- Stopping the agent yourself pauses the goal.
+- After 10 automatic continuations in a row the goal pauses so a stuck agent can't loop forever; `/goal resume` gives it another 10.
 
 ### CLAUDE.md support
 

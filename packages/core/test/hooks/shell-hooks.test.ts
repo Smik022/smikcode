@@ -93,3 +93,39 @@ describe("ShellHooks.select", () => {
     expect(ShellHooks.select(entries, undefined).map((hook) => hook.command)).toEqual(["a", "b", "c"])
   })
 })
+
+describe("ShellHooks.claudeSettings", () => {
+  const settings = JSON.stringify({
+    permissions: { allow: ["Bash(ls:*)"] },
+    hooks: {
+      PreToolUse: [
+        { matcher: "Bash", hooks: [{ type: "command", command: "check.sh", timeout: 5 }] },
+        { hooks: [{ type: "prompt", prompt: "ask the model" }] },
+        {
+          matcher: "Edit",
+          hooks: [
+            { type: "prompt", prompt: "x" },
+            { type: "command", command: "lint.sh" },
+          ],
+        },
+      ],
+      Notification: [{ hooks: [{ type: "command", command: "notify.sh" }] }],
+    },
+  })
+
+  test("keeps runnable command hooks and skips the rest", () => {
+    expect(ShellHooks.claudeSettings(settings, "PreToolUse")).toMatchObject([
+      { matcher: "Bash", hooks: [{ command: "check.sh", timeout: 5 }] },
+      { matcher: "Edit", hooks: [{ command: "lint.sh" }] },
+    ])
+  })
+
+  test("ignores events SmikCode does not have and events that are absent", () => {
+    expect(ShellHooks.claudeSettings(settings, "Stop")).toEqual([])
+  })
+
+  test("treats malformed settings as having no hooks", () => {
+    expect(ShellHooks.claudeSettings("{not json", "PreToolUse")).toEqual([])
+    expect(ShellHooks.claudeSettings(JSON.stringify({ hooks: { PreToolUse: "nope" } }), "PreToolUse")).toEqual([])
+  })
+})

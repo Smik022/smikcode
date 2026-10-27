@@ -77,6 +77,10 @@ export class Info extends Schema.Class<Info>("Config.Info")({
   hooks: ConfigHooks.Info.pipe(optional).annotate({
     description: "Shell commands that run at tool, prompt, stop and session start events",
   }),
+  claude_hooks: Schema.Boolean.pipe(optional).annotate({
+    description:
+      "Also run the hooks in Claude Code's settings files (~/.claude/settings.json, .claude/settings.json and .claude/settings.local.json)",
+  }),
   media: ConfigMedia.Info.pipe(optional).annotate({
     description: "Media processing configuration",
   }),

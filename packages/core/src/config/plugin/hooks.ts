@@ -4,9 +4,12 @@ import { ToolFailure } from "@opencode/ai"
 import { define } from "@opencode/plugin/effect/plugin"
 import type { SessionEvent } from "@opencode/schema/session-event"
 import { Brand } from "@opencode/util/brand"
+import { FSUtil } from "@opencode/util/fs-util"
+import { Global } from "@opencode/util/global"
 import { AppProcess } from "@opencode/util/process"
 import { Duration, Effect, Stream } from "effect"
 import { ChildProcess } from "effect/process"
+import path from "path"
 import { Config } from "../../config.js"
 import { ShellHooks } from "../../hooks/shell-hooks.js"
 import { Location } from "../../location.js"
@@ -23,21 +26,36 @@ export const Plugin = define({
   id: "opencode.config.hooks",
   effect: Effect.fn(function* (ctx) {
     const config = yield* Config.Service
+    const fs = yield* FSUtil.Service
+    const global = yield* Global.Service
     const location = yield* Location.Service
     const processes = yield* AppProcess.Service
     const selector = yield* ShellSelect.Service
     const loaded = yield* ConfigEntryObserver.observe(config, ctx.event, Effect.void)
     const stops = new Map<string, number>()
 
-    // Every configured document contributes, from lowest to highest priority.
-    const configured = (event: ShellHooks.Event, tool?: string) =>
-      ShellHooks.select(
-        loaded.entries.flatMap((entry) => (entry.type === "document" ? (entry.info.hooks?.[event] ?? []) : [])),
-        tool,
+    // Claude Code's settings files, from lowest to highest priority. They are read on use so edits apply at once.
+    const claudeFiles = [
+      path.join(global.home, ".claude", "settings.json"),
+      path.join(location.project.directory, ".claude", "settings.json"),
+      path.join(location.project.directory, ".claude", "settings.local.json"),
+    ]
+
+    // Every configured document contributes, from lowest to highest priority, then Claude Code's files when enabled.
+    const configured = Effect.fnUntraced(function* (event: ShellHooks.Event, tool?: string) {
+      const native = loaded.entries.flatMap((entry) =>
+        entry.type === "document" ? (entry.info.hooks?.[event] ?? []) : [],
       )
+      if (Config.latest(loaded.entries, "claude_hooks") !== true) return ShellHooks.select(native, tool)
+      const texts = yield* Effect.forEach(claudeFiles, (file) =>
+        fs.readFileStringSafe(file).pipe(Effect.orElseSucceed(() => undefined)),
+      )
+      const claude = texts.flatMap((text) => (text === undefined ? [] : ShellHooks.claudeSettings(text, event)))
+      return ShellHooks.select([...native, ...claude], tool)
+    })
 
     const execute = Effect.fn("ConfigHooksPlugin.execute")(function* (
-      commands: ReturnType<typeof configured>,
+      commands: ReadonlyArray<{ readonly command: string; readonly timeout?: number }>,
       input: Record<string, unknown>,
     ) {
       if (commands.length === 0) return []
@@ -93,7 +111,7 @@ export const Plugin = define({
 
     yield* ctx.tool.hook("execute.before", (event) =>
       Effect.gen(function* () {
-        const outcomes = yield* execute(configured("PreToolUse", event.tool), {
+        const outcomes = yield* execute(yield* configured("PreToolUse", event.tool), {
           hook_event_name: "PreToolUse",
           session_id: event.sessionID,
           tool_name: event.tool,
@@ -113,7 +131,7 @@ export const Plugin = define({
                 item.type === "text" ? [item.text] : [],
               )
             : [event.error.message]
-        const outcomes = yield* execute(configured("PostToolUse", event.tool), {
+        const outcomes = yield* execute(yield* configured("PostToolUse", event.tool), {
           hook_event_name: "PostToolUse",
           session_id: event.sessionID,
           tool_name: event.tool,
@@ -137,7 +155,7 @@ export const Plugin = define({
     yield* ctx.session.hook("prompt", (event) =>
       Effect.gen(function* () {
         stops.delete(event.sessionID)
-        const outcomes = yield* execute(configured("UserPromptSubmit"), {
+        const outcomes = yield* execute(yield* configured("UserPromptSubmit"), {
           hook_event_name: "UserPromptSubmit",
           session_id: event.sessionID,
           prompt: event.prompt.text,
@@ -168,7 +186,7 @@ export const Plugin = define({
           const sessionID = event.data.sessionID
           if (event.type === "session.created") {
             if (event.data.parentID !== undefined) return
-            const outcomes = yield* execute(configured("SessionStart"), {
+            const outcomes = yield* execute(yield* configured("SessionStart"), {
               hook_event_name: "SessionStart",
               session_id: sessionID,
               source: "startup",
@@ -183,7 +201,7 @@ export const Plugin = define({
             return
           }
 
-          const commands = configured("Stop")
+          const commands = yield* configured("Stop")
           if (commands.length === 0) return
           const session = yield* ctx.session.get({ sessionID })
           if (session.parentID !== undefined) return

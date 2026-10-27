@@ -2234,6 +2234,7 @@ export type ConfigEntry =
             hooks: Array<{ type?: "command"; command: string; timeout?: number }>
           }>
         }
+        claude_hooks?: boolean
         media?: {
           image?: { auto_resize?: boolean; max_width?: number; max_height?: number; max_base64_bytes?: number }
         }

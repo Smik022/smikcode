@@ -213,6 +213,7 @@ export function normalize(input: unknown): Result {
     enterprise: Info.fields.enterprise,
     username: Info.fields.username,
     snapshots: Info.fields.snapshots,
+    claude_hooks: Info.fields.claude_hooks,
     media: Info.fields.media,
     tool_output: Info.fields.tool_output,
     websearch: Info.fields.websearch,

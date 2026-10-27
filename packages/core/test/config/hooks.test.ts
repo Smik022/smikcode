@@ -45,9 +45,14 @@ process.exit(2)`,
   fail: `process.exit(1)`,
 }
 
+// `claude` writes a Claude Code settings file into the project and sets `claude_hooks` accordingly.
 function withHooks<A, E, R>(
   build: (command: (script: keyof typeof scripts) => string) => Hooks,
   body: (hooks: PluginHooks.Interface) => Effect.Effect<A, E, R>,
+  claude?: {
+    readonly enabled: boolean
+    readonly settings: (command: (script: keyof typeof scripts) => string) => unknown
+  },
 ) {
   return Effect.acquireUseRelease(
     Effect.promise(() => tmpdir()),
@@ -64,7 +69,18 @@ function withHooks<A, E, R>(
           return Object.fromEntries(written)
         })
         const hooks = build((script) => files[script])
-        yield* Effect.promise(() => fs.writeFile(path.join(tmp.path, "opencode.json"), JSON.stringify({ hooks })))
+        yield* Effect.promise(async () => {
+          await fs.writeFile(
+            path.join(tmp.path, "opencode.json"),
+            JSON.stringify({ hooks, ...(claude ? { claude_hooks: claude.enabled } : {}) }),
+          )
+          if (!claude) return
+          await fs.mkdir(path.join(tmp.path, ".claude"), { recursive: true })
+          await fs.writeFile(
+            path.join(tmp.path, ".claude", "settings.json"),
+            JSON.stringify(claude.settings((script) => files[script])),
+          )
+        })
         return yield* Effect.gen(function* () {
           const plugins = yield* Plugin.Service
           yield* plugins.awaitActivation
@@ -151,6 +167,41 @@ describe("shell hooks", () => {
             Exit.isSuccess(yield* hooks.trigger("tool", "execute.before", before("shell")).pipe(Effect.exit)),
           ).toBe(true)
         }),
+    ),
+  )
+
+  const claudeSettings = (command: (script: keyof typeof scripts) => string) => ({
+    permissions: { allow: ["Bash(ls:*)"] },
+    hooks: {
+      PreToolUse: [{ matcher: "Bash", hooks: [{ type: "command", command: command("block") }] }],
+      // Hook kinds SmikCode cannot run are skipped without hiding the others.
+      PostToolUse: [{ hooks: [{ type: "prompt", prompt: "check the result" }] }],
+    },
+  })
+
+  it.live("runs Claude Code settings hooks when claude_hooks is on", () =>
+    withHooks(
+      () => ({}),
+      (hooks) =>
+        Effect.gen(function* () {
+          const exit = yield* hooks.trigger("tool", "execute.before", before("shell")).pipe(Effect.exit)
+          expect(Exit.isFailure(exit)).toBe(true)
+          expect(String(exit)).toContain("Blocked by PreToolUse hook: PreToolUse:shell:echo hi")
+        }),
+      { enabled: true, settings: claudeSettings },
+    ),
+  )
+
+  it.live("ignores Claude Code settings hooks unless claude_hooks is on", () =>
+    withHooks(
+      () => ({}),
+      (hooks) =>
+        Effect.gen(function* () {
+          expect(
+            Exit.isSuccess(yield* hooks.trigger("tool", "execute.before", before("shell")).pipe(Effect.exit)),
+          ).toBe(true)
+        }),
+      { enabled: false, settings: claudeSettings },
     ),
   )
 })

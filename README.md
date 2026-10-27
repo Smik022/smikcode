@@ -124,7 +124,7 @@ They are plain Markdown with one bullet per fact, so you can edit them by hand. 
 
 ### Permission modes
 
-Type `/mode` in any session (terminal, web or desktop) to see or change how much SmikCode asks before acting:
+In the web and desktop apps, the picker next to the model in the prompt box (**Ask**, **Accept edits**, **Auto**) sets this for the session, or for a new session before you send the first message. In any client you can also type `/mode` to see or change how much SmikCode asks before acting:
 
 | Mode | What happens |
 |---|---|

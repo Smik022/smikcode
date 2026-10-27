@@ -1,7 +1,9 @@
 import { Predicate } from "effect"
 import { base64Encode } from "@opencode/util/encode"
+import { PermissionMode } from "@opencode/schema/permission-mode"
 import { Session } from "@opencode/schema/session"
 import { startTransition } from "solid-js"
+import { createStore } from "solid-js/store"
 import type { NewSessionComposerAdapter } from "@/composer/adapter"
 import { useComposerState } from "@/composer/persistence"
 import { createComposerControls, createComposerModelSelection } from "@/composer/selection"
@@ -35,7 +37,18 @@ export function createNewSessionComposerAdapter(props: {
   const location = useWorkspaceLocation()
   const language = useLanguage()
   const model = createComposerModelSelection({ agent: () => local.agent.current() })
-  const controls = createComposerControls({ model })
+  // A draft has no session to hold the mode yet, so it is kept here and written into the session on creation.
+  const [draft, setDraft] = createStore<{ mode: PermissionMode.Mode }>({ mode: "default" })
+
+  const controls = createComposerControls({
+    model,
+    mode: {
+      get current() {
+        return draft.mode
+      },
+      select: (mode) => setDraft("mode", mode),
+    },
+  })
 
   const adapter: NewSessionComposerAdapter = {
     kind: "new-session",
@@ -102,6 +115,7 @@ export function createNewSessionComposerAdapter(props: {
           variant: selection.variant,
         },
         location: { directory: sessionDirectory },
+        metadata: draft.mode === "default" ? undefined : PermissionMode.write(undefined, draft.mode),
       })
 
       const creation = created.request.then(

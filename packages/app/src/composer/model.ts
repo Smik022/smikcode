@@ -18,6 +18,7 @@ import { resolveBlobUrl } from "@/runtime/persistence/drafts"
 import { useData, useServer } from "@/runtime/server/current"
 import { showToast } from "@/shell/notifications/toast"
 import { formatServerError } from "@/runtime/server/errors"
+import { PermissionMode } from "@opencode/schema/permission-mode"
 import { Skill } from "@opencode/schema/skill"
 import type { ComposerAdapter, ComposerControls, ComposerQueue } from "./adapter"
 import { isAttachment } from "./prompt-parts"
@@ -399,6 +400,19 @@ export function createComposerModel(adapter: ComposerAdapter, options?: { queue?
               keybind: () => command.keybindParts("agent.cycle"),
             }
           : undefined
+      },
+      get mode() {
+        if (!adapter.controls().mode) return undefined
+
+        return {
+          options: () => PermissionMode.Modes.map((id) => ({ id, label: language.t(`ui.promptInput.mode.${id}`) })),
+          current: () => adapter.controls().mode?.current ?? "default",
+          onSelect: (value: string) => {
+            const mode = PermissionMode.Modes.find((item) => item === value)
+
+            if (mode) adapter.controls().mode?.select(mode)
+          },
+        }
       },
       variant: {
         options: () => variants().map((value) => ({ id: value, label: value })),

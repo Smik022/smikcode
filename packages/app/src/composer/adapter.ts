@@ -1,6 +1,7 @@
 import type { Data } from "@opencode/client/solid"
 import type { SessionMessageUser } from "@opencode/client/promise"
 import type { Accessor } from "solid-js"
+import type { PermissionMode } from "@opencode/schema/permission-mode"
 import type { ModelSelection } from "@/providers/models/selection"
 import type { ServerSDK } from "@/runtime/server/client"
 import type { SessionMessageHandoff } from "@/session/handoff"
@@ -19,6 +20,11 @@ export type ComposerControls = {
     selection: ModelSelection
     paid: boolean
     loading: boolean
+  }
+  // How much the agent asks before acting. Absent where the composer cannot change it.
+  mode?: {
+    current: PermissionMode.Mode
+    select: (mode: PermissionMode.Mode) => void
   }
 }
 

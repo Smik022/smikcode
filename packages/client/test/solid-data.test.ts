@@ -348,6 +348,58 @@ test("preserves a live session rename across concurrent session and family reads
   }
 })
 
+test("sends session metadata on creation and follows live metadata updates", async () => {
+  const listeners = new Set<Parameters<CreateDataInput["event"]["listen"]>[0]>()
+  const bodies: unknown[] = []
+  const api = OpenCode.make({
+    baseUrl: "http://opencode.local",
+    fetch: async (input, init) => {
+      const request = input instanceof Request ? input : new Request(input, init)
+      if (request.method !== "POST" || !request.url.endsWith("/api/session")) {
+        return Response.json({ data: [], cursor: {} })
+      }
+      const body = (await request.json()) as { id: string; metadata?: Record<string, never> }
+      bodies.push(body)
+      return Response.json({ data: { ...session(0), id: body.id, metadata: body.metadata } })
+    },
+  })
+  const setup = createRoot((dispose) => ({
+    data: createData({
+      api: () => api,
+      directory: "/project",
+      event: {
+        on: () => () => {},
+        listen(handler) {
+          listeners.add(handler)
+          return () => listeners.delete(handler)
+        },
+      },
+    }),
+    dispose,
+  }))
+
+  try {
+    const created = setup.data.session.create({ id: "ses_meta", metadata: { permission_mode: "edits" } })
+    // The optimistic record already carries the metadata, so the picker shows it before the server answers.
+    expect(setup.data.session.get("ses_meta")?.metadata).toEqual({ permission_mode: "edits" })
+    await created.request
+    expect(bodies).toHaveLength(1)
+    expect(bodies[0]).toMatchObject({ id: "ses_meta", metadata: { permission_mode: "edits" } })
+
+    const event: OpenCodeEvent = {
+      id: "evt_metadata",
+      created: 1,
+      type: "session.metadata.updated",
+      durable: { aggregateID: "ses_meta", seq: 1, version: 1 },
+      data: { sessionID: "ses_meta", metadata: { permission_mode: "auto", ticket: "SMK-1" } },
+    }
+    listeners.forEach((listener) => listener({ name: event.type, details: event }))
+    expect(setup.data.session.get("ses_meta")?.metadata).toEqual({ permission_mode: "auto", ticket: "SMK-1" })
+  } finally {
+    setup.dispose()
+  }
+})
+
 test("updates authoritative cached project metadata from live events", async () => {
   const listeners = new Set<Parameters<CreateDataInput["event"]["listen"]>[0]>()
   const original: Project = {

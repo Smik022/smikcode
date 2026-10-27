@@ -1,3 +1,4 @@
+import { PermissionMode } from "@opencode/schema/permission-mode"
 import type { SessionUserActions } from "@opencode/session-ui/message"
 import { getFilename, sameDirectory } from "@opencode/util/path"
 import { useDialog } from "@opencode/ui/context/dialog"
@@ -52,7 +53,24 @@ export function createActiveSessionRegion(input: {
   const platform = usePlatform()
   const prompt = useComposerState()
   const state = createSessionRequestModel()
-  const controls = createComposerControls()
+
+  // The mode lives in the session's metadata, so a change reaches every client of the session.
+  const controls = createComposerControls({
+    mode: {
+      get current() {
+        return PermissionMode.read(input.session.data.info()?.metadata)
+      },
+      select: (mode) => {
+        const info = input.session.data.info()
+
+        if (!info) return
+        void server.api.session
+          .update({ sessionID: info.id, metadata: PermissionMode.write(info.metadata, mode) })
+          .catch(() => showToast({ title: language.t("common.requestFailed") }))
+      },
+    },
+  })
+
   let promptRef: HTMLDivElement | undefined
 
   createEffect(

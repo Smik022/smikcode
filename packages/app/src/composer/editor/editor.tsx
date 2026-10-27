@@ -366,13 +366,22 @@ export function ComposerEditor(props: ComposerEditorProps) {
                 )}
               </Show>
               <Show when={props.modelControlsVisible ?? true}>
+                <Show when={view.mode} keyed>
+                  {(control) => (
+                    <ComposerEditorConfiguredSelect
+                      mobileDrawer
+                      title={i18n.t("ui.promptInput.chooseMode")}
+                      control={control}
+                    />
+                  )}
+                </Show>
                 {props.modelControl}
                 <Show when={view.variant} keyed>
                   {(control) => (
                     <Show when={control.options().length > 1}>
                       <ComposerEditorConfiguredSelect
                         mobileDrawer
-                        title={i18n.t("ui.promptInput.chooseVariant")}
+                        title={i18n.t("ui.promptInput.chooseEffort")}
                         keybind={["Shift", "Mod", "D"]}
                         control={control}
                         class={control.current() === "default" ? "composer-variant-default" : undefined}

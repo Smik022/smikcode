@@ -11,7 +11,7 @@ import { cycleModelVariant, getConfiguredAgentVariant, resolveModelVariant } fro
 import { useComposerState } from "./persistence"
 import { useConfiguredModel } from "@/providers/models/configured"
 
-export function createComposerControls(input: { model?: ModelSelection } = {}) {
+export function createComposerControls(input: { model?: ModelSelection; mode?: ComposerControls["mode"] } = {}) {
   const local = useLocal()
   const sdk = useWorkspaceLocation()
   const data = useData()
@@ -34,6 +34,7 @@ export function createComposerControls(input: { model?: ModelSelection } = {}) {
           (local.agent.visible() && data.location.agent.list({ directory: sdk().directory }) === undefined) ||
           !providers.ready(),
       },
+      mode: input.mode,
     }
   })
 }

@@ -309,13 +309,28 @@ function createWorkspace(input: { storage: Storage; server: ServerRef; directory
     clear() {
       stored.set({ active: undefined, all: [] })
     },
-    new() {
-      const nextNumber = pickNextTerminalNumber()
+    // Starts the user's own Claude Code in a new tab, with SmikCode's tools attached to it over MCP. The backend says
+    // what to run; sign-in stays with Claude Code, so nothing here touches its credentials.
+    async claude() {
+      const response = await input.server.client.rpc.call({
+        rpcID: "smikcode.bridge",
+        method: "launch",
+        location,
+        input: { tools: "all" },
+      })
+
+      const launch: { command: string; args: string[] } = response.output
+      this.new({ title: "claude", command: launch.command, args: launch.args })
+    },
+    new(command?: { title: string; command: string; args: string[] }) {
+      // A tab that runs a command keeps its own title, so it takes no number from the shell tabs.
+      const nextNumber = command ? 0 : pickNextTerminalNumber()
+      const title = command?.title ?? defaultTitle(nextNumber)
       const focusRequest = requestFocus(undefined, true)
 
       const doCreate = async () => {
         return input.server.client.pty
-          .create({ location, title: defaultTitle(nextNumber) })
+          .create({ location, title, command: command?.command, args: command?.args })
           .then((result) => result.data)
       }
 
@@ -331,7 +346,7 @@ function createWorkspace(input: { storage: Storage; server: ServerRef; directory
 
           const newTerminal = {
             id,
-            title: data?.title ?? defaultTitle(nextNumber),
+            title: data?.title ?? title,
             titleNumber: nextNumber,
           }
 

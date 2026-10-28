@@ -17,6 +17,7 @@ import type { LocalPTY } from "./state"
 import { SortableTerminalTab } from "./tab"
 import { Terminal } from "./terminal"
 import { terminalTabLabel } from "./title"
+import { showToast } from "@opencode/ui/toast"
 import { focusTerminalById } from "./focus"
 
 const MAX_CACHED_TERMINAL_WORKSPACES = 20
@@ -307,6 +308,18 @@ export default function TerminalPanel(props: { model: TerminalModel; session: Mo
                       variant="ghost"
                       onClick={() => terminal().new()}
                       aria-label={extension.t("command.new")}
+                    />
+                  </Tooltip>
+                  <Tooltip value={extension.t("command.claude")} placement="bottom" class="flex items-center">
+                    <IconButton
+                      icon={<Icon name="code-slash" size="large" />}
+                      variant="ghost"
+                      onClick={() =>
+                        terminal()
+                          .claude()
+                          .catch(() => showToast({ title: extension.t("claude.failed") }))
+                      }
+                      aria-label={extension.t("command.claude")}
                     />
                   </Tooltip>
                 </div>

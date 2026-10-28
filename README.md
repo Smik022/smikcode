@@ -124,15 +124,15 @@ They are plain Markdown with one bullet per fact, so you can edit them by hand. 
 
 ### Permission modes
 
-In the web and desktop apps, the picker next to the model in the prompt box (**Ask**, **Accept edits**, **Auto**) sets this for the session, or for a new session before you send the first message. In any client you can also type `/mode` to see or change how much SmikCode asks before acting:
+In the web and desktop apps, the picker next to the model in the prompt box (**Default**, **Accept edits**, **Auto**) sets this for the session, or for a new session before you send the first message. In any client you can also type `/mode` to see or change how much SmikCode asks before acting:
 
 | Mode | What happens |
 |---|---|
-| `default` | Asks before edits, commands and other protected actions |
-| `edits` | File edits are approved automatically; commands and everything else still ask |
-| `auto` | Everything that is not denied by a rule is approved automatically |
+| `default` | Follows your permission rules, asking only where a rule says to ask |
+| `edits` | File edits are approved automatically, even where a rule says to ask; everything else follows the rules |
+| `auto` | Anything a rule would ask about is approved automatically |
 
-`/mode edits` switches this session to accept-edits mode, and `/mode default` switches back. A mode only replaces a "would ask" with "allow": deny rules still win, so Plan mode stays read-only in every mode.
+`/mode edits` switches this session to accept-edits mode, and `/mode default` switches back. A mode only replaces a "would ask" with "allow": deny rules still win, so Plan mode stays read-only in every mode. Out of the box SmikCode's rules allow most actions (only reading `.env` files asks), so the modes matter once you add `ask` rules to your config.
 
 ### Goals
 
@@ -145,6 +145,27 @@ In the web and desktop apps, the picker next to the model in the prompt box (**A
 ### CLAUDE.md support
 
 SmikCode reads `AGENTS.md` as its project instructions. Where a directory has no `AGENTS.md`, it reads that directory's `CLAUDE.md` instead, and it always adds `CLAUDE.local.md` (meant for personal notes you don't commit). Your global `~/.claude/CLAUDE.md` is used when `~/.config/smikcode/AGENTS.md` doesn't exist.
+
+### Using your own Claude Code with SmikCode
+
+SmikCode can start **your own, already signed-in Claude Code** with SmikCode's tools attached over MCP. Claude Code's model does the work, under your Claude plan. SmikCode's own chat and agent keep using whichever models you have connected in SmikCode.
+
+- **Desktop:** in the terminal panel, click the button that opens Claude Code with SmikCode's tools. It opens a terminal tab running `claude` with every SmikCode tool available.
+- **Terminal:** `smikcode claude` runs `claude` in the current folder, pre-wired. Add `--tools safe|edits|all` and put Claude's own arguments after `--`, for example `smikcode claude -- --model opus`.
+- **Permanently, from Claude Code:** `claude mcp add --scope user smikcode -- smikcode mcp serve --tools safe`
+
+What Claude Code gets:
+
+| Tool | What it does |
+|---|---|
+| `delegate_task` | Hands a task to a SmikCode agent on any model you have connected, including free ones, and returns its answer. Read-only unless `allow_edits` is set; it cannot run shell commands. |
+| `sessions_list`, `session_export` | Read your earlier SmikCode sessions |
+| `status` | Shows which backend and folder the server is using |
+| SmikCode's own tools | Chosen with `--tools`: `safe` is read-only (read, glob, grep, web fetch and search, todo, skill); `edits` adds edit, write, patch and memory; `all` adds shell, CodeMode and any plugin tools |
+
+SmikCode's own permission rules allow most actions out of the box, so `--tools` is the real limit on what Claude Code can do through SmikCode. `smikcode mcp serve --permission default|edits|auto` sets what those tools may do without asking. The server runs headless, so a request that needs approval is declined with a message that says how to allow it. Claude Code also asks you before calling an MCP tool unless you have allowed it in its own settings. Provider API keys and SmikCode's config are never offered as tools.
+
+How this stays within Anthropic's rules: SmikCode only launches the unmodified `claude` you installed and runs an MCP server that Claude Code connects to. It never reads, stores or passes on Claude Code's login or tokens, offers no "Log in with Claude", and does not change Claude Code. Anthropic does not allow other apps to use Claude plan sign-in for their own requests, so Claude models inside SmikCode's own chat need an API key. Read [Anthropic's legal and compliance page](https://code.claude.com/docs/en/legal-and-compliance) for the current terms.
 
 ## Exporting a session
 

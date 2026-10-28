@@ -3,6 +3,8 @@ export default {
   "command.toggle": "Toggle terminal",
   "command.new": "New terminal",
   "command.new.description": "Create a new terminal tab",
+  "command.claude": "Open Claude Code with SmikCode's tools",
+  "claude.failed": "Couldn't start Claude Code. Is it installed?",
   loading: "Loading terminal…",
   "title.numbered": "Terminal {{number}}",
   close: "Close terminal",

@@ -21,9 +21,9 @@ const aliases: Record<string, Mode> = {
 }
 
 export const descriptions: Record<Mode, string> = {
-  default: "Ask before edits, commands and other protected actions.",
-  edits: "File edits are approved automatically. Commands and other actions still ask.",
-  auto: "Everything that is not denied by a rule is approved automatically.",
+  default: "Follow the permission rules. SmikCode asks only where a rule says to ask.",
+  edits: "File edits are approved automatically. Other actions follow the permission rules.",
+  auto: "Everything a rule says to ask about is approved automatically. Deny rules still apply.",
 }
 
 export function parse(text: string): Mode | undefined {

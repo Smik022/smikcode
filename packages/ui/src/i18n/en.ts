@@ -166,7 +166,7 @@ const source = {
   "ui.promptInput.chooseVariant": "Choose model variant",
   "ui.promptInput.chooseEffort": "Choose reasoning effort",
   "ui.promptInput.chooseMode": "Choose permission mode",
-  "ui.promptInput.mode.default": "Ask",
+  "ui.promptInput.mode.default": "Default",
   "ui.promptInput.mode.edits": "Accept edits",
   "ui.promptInput.mode.auto": "Auto",
   "ui.promptInput.send": "Send",

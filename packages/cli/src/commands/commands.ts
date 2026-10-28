@@ -247,6 +247,32 @@ const Root = Spec.make(typeof OPENCODE_CLI_NAME === "string" ? OPENCODE_CLI_NAME
             ),
           },
         }),
+        Spec.make("serve", {
+          description: "Run SmikCode as an MCP server on stdio, for MCP clients such as Claude Code",
+          params: {
+            ...ServerParams,
+            directory: Flag.String("directory").pipe(
+              Flag.withDescription("Folder the tools work in (default: the current folder)"),
+              Flag.optional,
+            ),
+            permission: Flag.Literals("permission", ["default", "edits", "auto"]).pipe(
+              Flag.withDescription(
+                "What bridged tools may do without asking: default declines anything that needs approval, edits also approves file edits, auto approves everything no rule denies",
+              ),
+              Flag.withDefault("default"),
+            ),
+            tools: Flag.Literals("tools", ["safe", "edits", "all"]).pipe(
+              Flag.withDescription(
+                "Which SmikCode tools the client may use: safe is read-only (read, glob, grep, web, todo, skill), edits adds file changes and memory, all adds shell commands and everything else",
+              ),
+              Flag.withDefault("safe"),
+            ),
+            noBridge: Flag.Boolean("no-bridge").pipe(
+              Flag.withDescription("Offer only SmikCode's own session tools, not its read, edit and shell tools"),
+              Flag.withDefault(false),
+            ),
+          },
+        }),
         Spec.make("auth", {
           description: "Authenticate with an OAuth-capable remote MCP server",
           params: {
@@ -258,6 +284,36 @@ const Root = Spec.make(typeof OPENCODE_CLI_NAME === "string" ? OPENCODE_CLI_NAME
           params: { name: Argument.String("name").pipe(Argument.withDescription("Name of the MCP server")) },
         }),
       ],
+    }),
+    Spec.make("claude", {
+      description: "Run your installed Claude Code with SmikCode's tools connected to it over MCP",
+      params: {
+        ...ServerParams,
+        directory: Flag.String("directory").pipe(
+          Flag.withDescription("Folder to work in (default: the current folder)"),
+          Flag.optional,
+        ),
+        tools: Flag.Literals("tools", ["safe", "edits", "all"]).pipe(
+          Flag.withDescription(
+            "Which SmikCode tools Claude Code may use: safe is read-only, edits adds file changes, all adds shell commands and everything else",
+          ),
+          Flag.withDefault("safe"),
+        ),
+        permission: Flag.Literals("permission", ["default", "edits", "auto"]).pipe(
+          Flag.withDescription("What those tools may do without asking: see mcp serve"),
+          Flag.withDefault("default"),
+        ),
+        waitOnError: Flag.Boolean("wait-on-error").pipe(
+          Flag.withDescription(
+            "Wait for a key press when Claude Code cannot be started, so the message stays visible in a terminal tab that closes on exit",
+          ),
+          Flag.withDefault(false),
+        ),
+        args: Argument.String("args").pipe(
+          Argument.withDescription("Arguments passed on to claude, after --"),
+          Argument.variadic({ min: 0 }),
+        ),
+      },
     }),
     Spec.make("plugin", {
       description: "Manage plugins",

@@ -7,6 +7,8 @@ import debug from "./debug"
 import debugRenderer from "./debug/renderer"
 import terminal from "./terminal"
 import terminalRenderer from "./terminal/renderer"
+import workflow from "./workflow"
+import workflowRenderer from "./workflow/renderer"
 import file from "./file"
 import fileRenderer from "./file/renderer"
 import review from "./review"
@@ -40,6 +42,7 @@ export const builtins = Extension.compose(
   { ...btw, renderer: eager(btwRenderer) },
   { ...debug, renderer: eager(debugRenderer) },
   { ...terminal, renderer: eager(terminalRenderer) },
+  { ...workflow, renderer: eager(workflowRenderer) },
   { ...file, renderer: eager(fileRenderer) },
   { ...review, renderer: eager(reviewRenderer) },
   { ...details, renderer: eager(detailsRenderer) },

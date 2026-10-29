@@ -1,13 +1,31 @@
 export * as Workflow from "./workflow.js"
 
+import { Workflow as Stored } from "@opencode/schema/workflow"
 import type { SessionMetadata } from "@opencode/schema/session-metadata"
 import { Option, Schema } from "effect"
 
-/** Session metadata key holding the run in progress. */
-export const KEY = "workflow"
-
-/** Session metadata key holding a workflow picked in the prompt box, which the next message starts. */
-export const PENDING = "workflow_pending"
+// The stored form is shared with clients that show, pick and edit workflows.
+export const KEY = Stored.KEY
+export const PENDING = Stored.PENDING
+export const DONE = Stored.DONE
+export const DEFAULT_RETRIES = Stored.DEFAULT_RETRIES
+export const Stage = Stored.Stage
+export type Stage = Stored.Stage
+export const Definition = Stored.Definition
+export type Definition = Stored.Definition
+export const Source = Stored.Source
+export type Source = Stored.Source
+export const Listed = Stored.Listed
+export const Outcome = Stored.Outcome
+export const Report = Stored.Report
+export type Report = Stored.Report
+export const Run = Stored.Run
+export type Run = Stored.Run
+export const read = Stored.read
+export const pending = Stored.pending
+export const isOpen = Stored.isOpen
+export const writePending = Stored.writePending
+export const problems = Stored.problems
 
 /** Session metadata key on a fresh-stage session: the run it belongs to and the result it reported. */
 export const CHILD = "workflow_child"
@@ -15,14 +33,8 @@ export const CHILD = "workflow_child"
 /** The tool a stage's agent calls to say how the stage went. */
 export const TOOL = "workflow_stage"
 
-/** A target for `onPass` that ends the workflow instead of naming a stage. */
-export const DONE = "done"
-
 /** Reminders sent to an agent that ended a run without reporting its stage, before the run pauses. */
 export const MAX_NUDGES = 4
-
-/** Times a failing stage is tried again when it sets no limit of its own. */
-export const DEFAULT_RETRIES = 3
 
 /** Past stage results kept in a run, so metadata stays small. */
 const MAX_REPORTS = 8
@@ -30,92 +42,18 @@ const MAX_REPORTS = 8
 const ID = Schema.String.check(Schema.isPattern(/^[a-z0-9][a-z0-9_-]{0,62}$/u))
 const Count = Schema.Int.check(Schema.isGreaterThanOrEqualTo(0))
 
-export const Stage = Schema.Struct({
-  id: ID,
-  title: Schema.String,
-  /** What the agent should do in this stage. */
-  instructions: Schema.String,
-  /** `fresh` runs the stage in a new session that has not seen the earlier work. Defaults to `same`. */
-  context: Schema.optional(Schema.Literals(["same", "fresh"])),
-  /** Agent for this stage, such as `plan` for a read-only review. */
-  agent: Schema.optional(Schema.String),
-  /** Model for this stage, written `provider/model` or `provider/model#variant`. */
-  model: Schema.optional(Schema.String),
-  /** How the stage ends: the agent says so (default), a command passes, or the user approves. */
-  exit: Schema.optional(Schema.Literals(["agent", "command", "approval"])),
-  /** With `exit: "command"`, a shell command that must exit 0 once the agent reports the stage as passed. */
-  command: Schema.optional(Schema.String),
-  /** Wait for the user to approve before this stage starts. */
-  approveFirst: Schema.optional(Schema.Boolean),
-  /** The stage to go to after a pass, or `done`. Defaults to the next stage in order. */
-  onPass: Schema.optional(Schema.String),
-  /** Where a failure goes, and how many times. Without it a failed stage is tried again. */
-  onFail: Schema.optional(Schema.Struct({ goto: ID, max: Schema.Int.check(Schema.isGreaterThanOrEqualTo(1)) })),
-})
-export type Stage = typeof Stage.Type
-
-export const Definition = Schema.Struct({
-  id: ID,
-  name: Schema.String,
-  description: Schema.optional(Schema.String),
-  stages: Schema.Array(Stage),
-})
-export type Definition = typeof Definition.Type
-
-export const Outcome = Schema.Literals(["pass", "fail", "blocked"])
-
-export const Report = Schema.Struct({ outcome: Outcome, summary: Schema.String })
-export type Report = typeof Report.Type
-
-export const Run = Schema.Struct({
-  /** A copy of the workflow as it was when the run started, so editing the file never changes a run. */
-  workflow: Definition,
-  task: Schema.String,
-  /** The agent the session had when the run started, which it goes back to once a stage's agent is no longer needed. */
-  origin: Schema.NullOr(Schema.String),
-  stage: ID,
-  status: Schema.Literals(["running", "waiting", "paused", "done", "blocked"]),
-  /** What a waiting run waits for: the go-ahead to start its stage, or approval of the stage's result. */
-  waiting: Schema.NullOr(Schema.Literals(["start", "finish"])),
-  /** Failed attempts so far, by the stage that failed. */
-  retries: Schema.Record(Schema.String, Count),
-  /** Reminders sent in the current stage. */
-  nudges: Count,
-  /** The most recent stage results. */
-  reports: Schema.Array(
-    Schema.Struct({ stage: ID, outcome: Schema.Literals(["pass", "fail"]), summary: Schema.String }),
-  ),
-  /** What the agent reported for the current stage, until the run ends and the engine acts on it. */
-  reported: Schema.NullOr(Report),
-  /** The session a fresh stage runs in. */
-  child: Schema.NullOr(Schema.String),
-  /** A short reason shown when the run paused or stopped. */
-  note: Schema.String,
-})
-export type Run = typeof Run.Type
-
 export const Child = Schema.Struct({
   parent: Schema.String,
   stage: ID,
   nudges: Count,
-  reported: Schema.NullOr(Report),
+  reported: Schema.NullOr(Stored.Report),
 })
 export type Child = typeof Child.Type
 
-const decodeRun = Schema.decodeUnknownOption(Run)
 const decodeChild = Schema.decodeUnknownOption(Child)
-const decodeText = Schema.decodeUnknownOption(Schema.String)
-
-export const read = (metadata: SessionMetadata | undefined) => Option.getOrUndefined(decodeRun(metadata?.[KEY]))
 
 export const readChild = (metadata: SessionMetadata | undefined) =>
   Option.getOrUndefined(decodeChild(metadata?.[CHILD]))
-
-export const pending = (metadata: SessionMetadata | undefined) =>
-  Option.getOrUndefined(decodeText(metadata?.[PENDING]))
-
-/** A run whose stage the agent can report on. */
-export const isOpen = (run: Run | undefined) => run?.status === "running" || run?.status === "waiting"
 
 /** Replaces one metadata key, or removes it when `value` is undefined. Other metadata is kept. */
 function put(metadata: SessionMetadata | undefined, key: string, value: SessionMetadata[string] | undefined) {
@@ -131,29 +69,6 @@ export const write = (metadata: SessionMetadata | undefined, run: Run | undefine
 
 export const writeChild = (metadata: SessionMetadata | undefined, child: Child | undefined) =>
   put(metadata, CHILD, child === undefined ? undefined : json(child))
-
-export const writePending = (metadata: SessionMetadata | undefined, id: string | undefined) => put(metadata, PENDING, id)
-
-/** What is wrong with a workflow definition, in words the author can act on. Empty when it is usable. */
-export function problems(definition: Definition) {
-  const ids = definition.stages.map((stage) => stage.id)
-  const known = new Set(ids)
-  return [
-    ...(definition.stages.length === 0 ? ["It has no stages."] : []),
-    ...ids.filter((id, index) => ids.indexOf(id) !== index).map((id) => `Two stages are called "${id}".`),
-    ...definition.stages.flatMap((stage) => [
-      ...(stage.exit === "command" && !stage.command?.trim()
-        ? [`Stage "${stage.id}" ends with a command but has none.`]
-        : []),
-      ...(stage.onPass !== undefined && stage.onPass !== DONE && !known.has(stage.onPass)
-        ? [`Stage "${stage.id}" goes on to "${stage.onPass}", which does not exist.`]
-        : []),
-      ...(stage.onFail !== undefined && !known.has(stage.onFail.goto)
-        ? [`Stage "${stage.id}" goes back to "${stage.onFail.goto}" on failure, which does not exist.`]
-        : []),
-    ]),
-  ]
-}
 
 export const find = (definitions: ReadonlyArray<Definition>, name: string) => {
   const wanted = name.trim().toLowerCase()

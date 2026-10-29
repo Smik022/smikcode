@@ -43,22 +43,31 @@ const description = `Report how the current workflow stage went. Call it when th
 
 Use outcome "pass" when the stage's goal is met and you have checked it. Use "fail" when it is not met and the work needs another attempt. Use "blocked" when you cannot go on without the user, and say what you need. The workflow moves on once your reply ends.`
 
-const Source = Schema.Literals(["builtin", "global", "project"])
+// Where a user's own workflows are saved: for every project, or in this project's folder.
+const Scope = Schema.Literals(["global", "project"])
 
 export const Definition = Rpc.define({
   id: "smikcode.workflow",
   methods: {
     list: {
       input: Schema.Struct({}),
-      output: Schema.Struct({
-        workflows: Schema.Array(Schema.Struct({ ...Workflow.Definition.fields, source: Source })),
-      }),
+      output: Schema.Struct({ workflows: Schema.Array(Workflow.Listed) }),
+    },
+    // Writes the workflow as a file. A workflow with problems is not written, and the problems come back instead.
+    save: {
+      input: Schema.Struct({ workflow: Workflow.Definition, scope: Scope }),
+      output: Schema.Struct({ problems: Schema.Array(Schema.String) }),
+    },
+    // Deletes the files in one scope that define the workflow. A prebuilt workflow of the same id comes back.
+    remove: {
+      input: Schema.Struct({ id: Schema.String, scope: Scope }),
+      output: Schema.Struct({ removed: Schema.Int }),
     },
   },
   events: {},
 })
 
-export type Source = typeof Source.Type
+export type Source = Workflow.Source
 
 export interface Loaded extends Workflow.Definition {
   readonly source: Source
@@ -68,6 +77,8 @@ export interface Loaded extends Workflow.Definition {
 export interface Deps {
   readonly load: Effect.Effect<ReadonlyArray<Loaded>>
   readonly check: (command: string) => Effect.Effect<{ readonly passed: boolean; readonly output: string }>
+  readonly save: (scope: typeof Scope.Type, workflow: Workflow.Definition) => Effect.Effect<ReadonlyArray<string>>
+  readonly remove: (scope: typeof Scope.Type, id: string) => Effect.Effect<number>
 }
 
 export const Plugin = define({
@@ -97,7 +108,7 @@ export const Plugin = define({
           Effect.map((text) => {
             const parsed = text === undefined ? undefined : decodeFile(text)
             if (parsed === undefined || parsed._tag === "None" || Workflow.problems(parsed.value).length > 0) return []
-            return [{ ...parsed.value, source }]
+            return [{ file: path.join(folder, entry.name), workflow: { ...parsed.value, source } }]
           }),
         ),
       )
@@ -106,9 +117,26 @@ export const Plugin = define({
 
     const load = Effect.gen(function* () {
       const builtin = WorkflowPresets.all.map((item): Loaded => ({ ...item, source: "builtin" }))
-      const all = [...builtin, ...(yield* read("global")), ...(yield* read("project"))]
+      const saved = [...(yield* read("global")), ...(yield* read("project"))].map((entry) => entry.workflow)
       // A later source replaces an earlier workflow of the same id, so a project can adjust a prebuilt one.
-      return [...new Map(all.map((item) => [item.id, item])).values()]
+      return [...new Map([...builtin, ...saved].map((item) => [item.id, item])).values()]
+    })
+
+    // A workflow keeps the file it came from, so editing one never leaves two files with the same id.
+    const save = Effect.fnUntraced(function* (scope: typeof Scope.Type, workflow: Workflow.Definition) {
+      const issues = Workflow.problems(workflow)
+      if (issues.length > 0) return issues
+      const existing = (yield* read(scope)).find((entry) => entry.workflow.id === workflow.id)
+      yield* fs
+        .writeWithDirs(existing?.file ?? path.join(directory(scope), `${workflow.id}.json`), `${JSON.stringify(workflow, null, 2)}\n`)
+        .pipe(Effect.orDie)
+      return []
+    })
+
+    const remove = Effect.fnUntraced(function* (scope: typeof Scope.Type, id: string) {
+      const files = (yield* read(scope)).filter((entry) => entry.workflow.id === id)
+      yield* Effect.forEach(files, (entry) => fs.remove(entry.file)).pipe(Effect.orDie)
+      return files.length
     })
 
     const check = Effect.fnUntraced(function* (command: string) {
@@ -135,7 +163,7 @@ export const Plugin = define({
         )
     })
 
-    yield* install(ctx, { load, check })
+    yield* install(ctx, { load, check, save, remove })
   }),
 })
 
@@ -391,7 +419,11 @@ export const install = Effect.fnUntraced(function* (ctx: Context, deps: Deps) {
   )
 
   yield* ctx.rpc
-    .register(Definition, { list: () => deps.load.pipe(Effect.map((workflows) => ({ workflows }))) })
+    .register(Definition, {
+      list: () => deps.load.pipe(Effect.map((workflows) => ({ workflows }))),
+      save: (input) => deps.save(input.scope, input.workflow).pipe(Effect.map((problems) => ({ problems }))),
+      remove: (input) => deps.remove(input.scope, input.id).pipe(Effect.map((removed) => ({ removed }))),
+    })
     .pipe(Effect.orDie)
 
   type Ended = SessionEvent.Execution.Succeeded | SessionEvent.Execution.Interrupted | SessionEvent.Execution.Failed

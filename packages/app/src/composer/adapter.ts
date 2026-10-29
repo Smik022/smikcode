@@ -26,6 +26,18 @@ export type ComposerControls = {
     current: PermissionMode.Mode
     select: (mode: PermissionMode.Mode) => void
   }
+  // The workflow the next message starts. Absent where the composer cannot pick one.
+  workflow?: {
+    // The workflow that is running or picked, if any.
+    current: string | undefined
+    // What can be chosen. While a run is in progress it is that run's workflow alone.
+    options: { id: string; label: string }[]
+    // A run is in progress, so the choice stays with it.
+    locked: boolean
+    select: (id: string | undefined) => void
+    // Reads the saved workflows again, so ones saved since the composer opened are offered.
+    refresh: () => void
+  }
 }
 
 export type ComposerSelection = {

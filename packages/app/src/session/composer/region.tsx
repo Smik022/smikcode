@@ -1,4 +1,7 @@
 import { PermissionMode } from "@opencode/schema/permission-mode"
+import { Workflow } from "@opencode/schema/workflow"
+import { createWorkflowControl } from "@/composer/workflow"
+import { WorkflowStrip } from "./workflow-strip"
 import type { SessionUserActions } from "@opencode/session-ui/message"
 import { getFilename, sameDirectory } from "@opencode/util/path"
 import { useDialog } from "@opencode/ui/context/dialog"
@@ -69,6 +72,18 @@ export function createActiveSessionRegion(input: {
           .catch(() => showToast({ title: language.t("common.requestFailed") }))
       },
     },
+    // The pick waits in the metadata until the next message, which starts the workflow.
+    workflow: createWorkflowControl({
+      metadata: () => input.session.data.info()?.metadata,
+      select: (id) => {
+        const info = input.session.data.info()
+
+        if (!info) return
+        void server.api.session
+          .update({ sessionID: info.id, metadata: Workflow.writePending(info.metadata, id) })
+          .catch(() => showToast({ title: language.t("common.requestFailed") }))
+      },
+    }),
   })
 
   let promptRef: HTMLDivElement | undefined
@@ -333,6 +348,7 @@ export function ActiveSessionComposerRegion(props: {
           keyed
           fallback={
             <div class="relative">
+              <WorkflowStrip session={props.session} />
               <SessionQueuePanel queue={props.model.queue} />
               <div class="relative z-10">
                 <Composer

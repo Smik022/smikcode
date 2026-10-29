@@ -28,6 +28,10 @@ export type ComposerSelectControl = {
   current: Accessor<string>
   onSelect: (id: string) => void
   keybind?: Accessor<string[]>
+  // Shows option labels as written, where they are names rather than words to capitalize.
+  plain?: boolean
+  // Runs each time the menu opens, for options that can change while the composer is open.
+  onOpen?: () => void
 }
 
 export type ComposerEditorView = {
@@ -38,6 +42,7 @@ export type ComposerEditorView = {
   }
   agent?: ComposerSelectControl
   mode?: ComposerSelectControl
+  workflow?: ComposerSelectControl
   variant?: ComposerSelectControl
   submit: {
     available?: Accessor<boolean>

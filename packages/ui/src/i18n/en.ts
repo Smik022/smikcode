@@ -169,6 +169,8 @@ const source = {
   "ui.promptInput.mode.default": "Default",
   "ui.promptInput.mode.edits": "Accept edits",
   "ui.promptInput.mode.auto": "Auto",
+  "ui.promptInput.chooseWorkflow": "Choose workflow",
+  "ui.promptInput.workflow.none": "No workflow",
   "ui.promptInput.send": "Send",
   "ui.promptInput.stop": "Stop",
   "ui.promptInput.exitShell": "Exit",

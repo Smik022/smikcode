@@ -28,6 +28,9 @@ import { createComposerSubmit } from "./submit"
 import { useAttachmentDestination } from "./attachments/destination"
 import { parseClientSlashCommand } from "./client-slash-command"
 
+// The menu entry that clears the pick. A workflow id is only letters, digits, "-" and "_", so this cannot clash with one.
+const NO_WORKFLOW = "(none)"
+
 export type ComposerModel = ComposerEditorModel & {
   readonly model: ComposerControls["model"]
 }
@@ -412,6 +415,26 @@ export function createComposerModel(adapter: ComposerAdapter, options?: { queue?
 
             if (mode) adapter.controls().mode?.select(mode)
           },
+        }
+      },
+      get workflow() {
+        const workflow = adapter.controls().workflow
+
+        // Without any workflow to offer, as on a server that has none, the control would only say "No workflow".
+        if (!workflow || (workflow.options.length === 0 && !workflow.locked)) return undefined
+
+        return {
+          plain: true,
+          options: () => {
+            const control = adapter.controls().workflow
+
+            if (!control || control.locked) return control?.options ?? []
+
+            return [{ id: NO_WORKFLOW, label: language.t("ui.promptInput.workflow.none") }, ...control.options]
+          },
+          current: () => adapter.controls().workflow?.current ?? NO_WORKFLOW,
+          onSelect: (value: string) => adapter.controls().workflow?.select(value === NO_WORKFLOW ? undefined : value),
+          onOpen: () => adapter.controls().workflow?.refresh(),
         }
       },
       variant: {

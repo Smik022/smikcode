@@ -3,6 +3,7 @@ import context from "./context"
 import btw from "./btw"
 import debug from "./debug"
 import terminal from "./terminal"
+import workflow from "./workflow"
 import file from "./file"
 import review from "./review"
 import details from "./details"
@@ -22,6 +23,7 @@ export const builtins = Extension.compose(
   btw,
   debug,
   terminal,
+  workflow,
   file,
   review,
   details,

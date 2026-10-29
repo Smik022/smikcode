@@ -2,11 +2,13 @@ import { Predicate } from "effect"
 import { base64Encode } from "@opencode/util/encode"
 import { PermissionMode } from "@opencode/schema/permission-mode"
 import { Session } from "@opencode/schema/session"
+import { Workflow } from "@opencode/schema/workflow"
 import { startTransition } from "solid-js"
 import { createStore } from "solid-js/store"
 import type { NewSessionComposerAdapter } from "@/composer/adapter"
 import { useComposerState } from "@/composer/persistence"
 import { createComposerControls, createComposerModelSelection } from "@/composer/selection"
+import { createWorkflowControl } from "@/composer/workflow"
 import { createComposerProjectControls } from "./project/controller"
 import { useLanguage } from "@/runtime/i18n/language"
 import { useLocal } from "@/providers/models/selection"
@@ -38,7 +40,7 @@ export function createNewSessionComposerAdapter(props: {
   const language = useLanguage()
   const model = createComposerModelSelection({ agent: () => local.agent.current() })
   // A draft has no session to hold the mode yet, so it is kept here and written into the session on creation.
-  const [draft, setDraft] = createStore<{ mode: PermissionMode.Mode }>({ mode: "default" })
+  const [draft, setDraft] = createStore<{ mode: PermissionMode.Mode; workflow?: string }>({ mode: "default" })
 
   const controls = createComposerControls({
     model,
@@ -48,6 +50,11 @@ export function createNewSessionComposerAdapter(props: {
       },
       select: (mode) => setDraft("mode", mode),
     },
+    // Likewise a picked workflow waits in the draft, and goes into the new session's metadata.
+    workflow: createWorkflowControl({
+      metadata: () => Workflow.writePending(undefined, draft.workflow),
+      select: (id) => setDraft("workflow", id),
+    }),
   })
 
   const adapter: NewSessionComposerAdapter = {
@@ -115,7 +122,7 @@ export function createNewSessionComposerAdapter(props: {
           variant: selection.variant,
         },
         location: { directory: sessionDirectory },
-        metadata: draft.mode === "default" ? undefined : PermissionMode.write(undefined, draft.mode),
+        metadata: startingMetadata(draft),
       })
 
       const creation = created.request.then(
@@ -247,4 +254,12 @@ function errorMessage(language: ReturnType<typeof useLanguage>, cause: unknown) 
     return cause.data.message
 
   return language.t("common.requestFailed")
+}
+
+// What a new session starts with: the permission mode and workflow chosen in the draft.
+function startingMetadata(draft: { mode: PermissionMode.Mode; workflow?: string }) {
+  const mode = draft.mode === "default" ? undefined : PermissionMode.write<string>(undefined, draft.mode)
+  const metadata = Workflow.writePending<string>(mode, draft.workflow)
+
+  return Object.keys(metadata).length === 0 ? undefined : metadata
 }

@@ -211,6 +211,9 @@ const run = Effect.fnUntraced(function* (options: { workflow?: WorkflowPlugin.Lo
         const passed = options.passing?.() ?? true
         return Effect.succeed({ passed, output: passed ? "ok" : "2 failed" })
       },
+      // Saving and removing files is checked against a real backend, in the live script.
+      save: () => Effect.die("unused"),
+      remove: () => Effect.die("unused"),
     },
   )
   if (!command || !tool || !context || !promptHook || !evaluate || !rpc)

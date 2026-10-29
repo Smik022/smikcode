@@ -144,7 +144,11 @@ In the web and desktop apps, the picker next to the model in the prompt box (**D
 
 ### Workflows
 
-A workflow is your own development process, written as stages the agent goes through in order: write a spec, write a failing test, build, review with fresh eyes, open a pull request. `/workflow <name> <task>` starts one in the current session, and the agent works through the stages one by one.
+A workflow is your own development process, written as stages the agent goes through in order: write a spec, write a failing test, build, review with fresh eyes, open a pull request. The agent works through the stages one by one.
+
+In the desktop app, pick one from the workflow menu in the prompt box (next to the permission mode). Your next message becomes the task. A strip above the prompt box then shows the stage the run is in, and offers Approve, Resume and Stop when they apply. You can also type `/workflow <name> <task>`.
+
+**Settings → Workflows** is where you build your own: a card per stage (instructions, this chat or a fresh session, agent and model, how the stage ends, where a pass or a failure goes) and a choice to save it for every project or only for this one. A prebuilt workflow can be changed the same way, and deleting your copy brings the prebuilt one back.
 
 | Command | What it does |
 |---|---|
@@ -164,7 +168,7 @@ Four workflows come with SmikCode:
 | `review` | Build, then a reviewer that has not seen the work checks it and sends fixes back |
 | `pr` | Self-review, commit and draft a pull request, then push and open it only after you approve |
 
-To make your own, save a JSON file in `~/.config/smikcode/workflows/` (every project) or `.smikcode/workflows/` (this project, so teammates share it). A file with the same `id` as another replaces it, and a project's file wins over a global one, so you can adjust a prebuilt workflow.
+The editor writes plain JSON files, so you can also write or share them by hand: `~/.config/smikcode/workflows/` (every project) or `.smikcode/workflows/` (this project, so teammates share it). A file with the same `id` as another replaces it, and a project's file wins over a global one, so you can adjust a prebuilt workflow.
 
 ```jsonc
 {

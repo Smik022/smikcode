@@ -144,14 +144,14 @@ it.effect("groups available models by provider with paging", () =>
   }),
 )
 
-const approvals = { assertions: [] as Permission.AssertInput[], denyEdit: false }
+const approvals = { assertions: [] as Permission.AssertInput[], denyEdit: false, denyMessage: false }
 const worktreeIt = testEffect(
   makePluginTestLayer(
     permissionLayer({
       assert: (input) =>
         Effect.sync(() => approvals.assertions.push(input)).pipe(
           Effect.andThen(
-            approvals.denyEdit && input.action === "edit"
+            (approvals.denyEdit && input.action === "edit") || (approvals.denyMessage && input.action === "session_message")
               ? Effect.fail(
                   new Permission.BlockedError({ rules: [], permission: input.action, resources: input.resources }),
                 )
@@ -254,5 +254,52 @@ worktreeIt.live("creates, lists, and removes worktrees for the plugin's project"
       { action: "edit", resources: [resource], save: ["*"], sessionID: session.id },
     ])
     expect((yield* run("worktree_list", {})).worktrees).not.toContainEqual({ directory, strategy: "git" })
+  }),
+)
+
+worktreeIt.live("lets a session list the others and message one, after the user allows it", () =>
+  Effect.gen(function* () {
+    const plugins = yield* Plugin.Service
+    const sessions = yield* Session.Service
+    const location = yield* Location.Service
+    yield* OpenCodeTools.Plugin.effect(yield* PluginHost.make(plugins))
+    const ref = Location.Ref.make({ directory: location.directory })
+    const sender = yield* sessions.create({ location: ref, title: "Sender" })
+    const receiver = yield* sessions.create({ location: ref, title: "Receiver" })
+    const registry = yield* Tool.Service
+    const call = (name: string, input: Record<string, unknown>) =>
+      executeTool(registry, {
+        sessionID: sender.id,
+        ...toolIdentity,
+        call: {
+          type: "tool-call",
+          id: `call-${name}-${JSON.stringify(input)}`,
+          name: "execute",
+          input: { code: `return await tools.opencode.${name}(${JSON.stringify(input)})` },
+        },
+      })
+    const run = (name: string, input: Record<string, unknown>) =>
+      call(name, input).pipe(
+        Effect.map((result) => JSON.parse(result.content?.[0]?.type === "text" ? result.content[0].text : "")),
+      )
+
+    const listed = yield* run("session_list", {})
+    expect(listed.sessions.find((item: { id: string }) => item.id === sender.id)).toMatchObject({ title: "Sender", current: true })
+    expect(listed.sessions.find((item: { id: string }) => item.id === receiver.id)).toMatchObject({ title: "Receiver", current: false })
+
+    // The user is asked first, and a no sends nothing. The message itself is checked against a real backend, because
+    // delivering it wakes the other session and a test may not reach the network.
+    approvals.assertions.length = 0
+    approvals.denyMessage = true
+    expect(yield* call("session_message", { sessionID: receiver.id, text: "Please review the parser." })).toMatchObject({
+      metadata: { error: true },
+    })
+    approvals.denyMessage = false
+    expect(approvals.assertions).toMatchObject([{ action: "session_message", resources: [receiver.id], sessionID: sender.id }])
+    expect(yield* sessions.inbox(receiver.id)).toEqual([])
+
+    // A session cannot message itself, and a session that does not exist cannot be messaged.
+    expect(yield* call("session_message", { sessionID: sender.id, text: "hello me" })).toMatchObject({ metadata: { error: true } })
+    expect(yield* call("session_message", { sessionID: "ses_doesnotexist", text: "hello" })).toMatchObject({ metadata: { error: true } })
   }),
 )

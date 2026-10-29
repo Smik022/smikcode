@@ -1,3 +1,4 @@
+import { Option, Schema } from "effect"
 import { Workflow } from "@opencode/schema/workflow"
 
 /** A stage as the editor holds it. Every field is text or a choice, so inputs bind to them directly. */
@@ -18,6 +19,8 @@ export type DraftStage = {
   failGoto: string
   /** Attempts before the workflow stops, or empty for the default. */
   failMax: string
+  /** Minutes the stage may take before the run pauses, or empty for no limit. */
+  timeout: string
 }
 
 export type Draft = {
@@ -28,6 +31,8 @@ export type Draft = {
   scope: "global" | "project"
   /** Not saved yet, so its id still follows its name. */
   fresh: boolean
+  /** Stages a run may enter in all before it stops, or empty for the default. */
+  maxSteps: string
   stages: DraftStage[]
 }
 
@@ -58,11 +63,12 @@ export function blankStage(draft: Pick<Draft, "stages">, title: string): DraftSt
     onPass: "",
     failGoto: "",
     failMax: "",
+    timeout: "",
   }
 }
 
 export function blank(scope: Draft["scope"], title: string): Draft {
-  const draft = { id: "", name: "", description: "", scope, fresh: true, stages: [] }
+  const draft = { id: "", name: "", description: "", scope, fresh: true, maxSteps: "", stages: [] }
 
   return { ...draft, stages: [blankStage(draft, title)] }
 }
@@ -74,6 +80,7 @@ export function fromDefinition(definition: Workflow.Definition, scope: Draft["sc
     description: definition.description ?? "",
     scope,
     fresh,
+    maxSteps: definition.maxSteps === undefined ? "" : String(definition.maxSteps),
     stages: definition.stages.map((stage) => ({
       id: stage.id,
       title: stage.title,
@@ -87,6 +94,7 @@ export function fromDefinition(definition: Workflow.Definition, scope: Draft["sc
       onPass: stage.onPass ?? "",
       failGoto: stage.onFail && stage.onFail.goto !== stage.id ? stage.onFail.goto : "",
       failMax: stage.onFail ? String(stage.onFail.max) : "",
+      timeout: stage.timeoutMinutes === undefined ? "" : String(stage.timeoutMinutes),
     })),
   }
 }
@@ -96,13 +104,22 @@ export function fromDefinition(definition: Workflow.Definition, scope: Draft["sc
  * first stage always runs in this chat and never waits, so it keeps neither setting.
  */
 export function toDefinition(draft: Draft): Workflow.Definition {
-  const name = draft.name.trim()
+  const head: Writable<Omit<Workflow.Definition, "stages">> = { id: draft.id, name: draft.name.trim() }
   const description = draft.description.trim()
-  const stages = draft.stages.map(stageOf)
+  const maxSteps = wholeNumber(draft.maxSteps)
 
-  if (description === "") return { id: draft.id, name, stages }
+  if (description !== "") head.description = description
 
-  return { id: draft.id, name, description, stages }
+  if (maxSteps !== undefined) head.maxSteps = maxSteps
+
+  return { ...head, stages: draft.stages.map(stageOf) }
+}
+
+// A whole number of at least one, or nothing: what a limit field holds when it is filled in.
+function wholeNumber(text: string) {
+  const value = Math.floor(Number(text))
+
+  return text.trim() !== "" && Number.isFinite(value) && value >= 1 ? value : undefined
 }
 
 type Writable<T> = { -readonly [K in keyof T]: T[K] }
@@ -131,6 +148,10 @@ function stageOf(stage: DraftStage, index: number): Workflow.Stage {
   if (stage.approveFirst && index > 0) result.approveFirst = true
 
   if (stage.onPass !== "") result.onPass = stage.onPass
+
+  const timeout = wholeNumber(stage.timeout)
+
+  if (timeout !== undefined) result.timeoutMinutes = timeout
 
   if (stage.failGoto !== "" || stage.failMax.trim() !== "") {
     const max = Math.floor(Number(stage.failMax))
@@ -181,4 +202,38 @@ export function missing(draft: Draft) {
     ...(draft.stages.some((stage) => stage.instructions.trim() === "") ? ["instructions" as const] : []),
     ...(draft.stages.some((stage) => stage.exit === "command" && stage.command.trim() === "") ? ["command" as const] : []),
   ]
+}
+
+/** A copy of a workflow to edit as a new one: its own id, and the name it is given. */
+export function copyOf(definition: Workflow.Definition, name: string, scope: Draft["scope"], taken: ReadonlySet<string>): Draft {
+  return fromDefinition({ ...definition, id: slug(`${definition.id}-copy`, taken, "workflow"), name }, scope, true)
+}
+
+/** The workflow as the file holds it, for copying and sharing. */
+export function asJson(draft: Draft) {
+  return JSON.stringify(toDefinition(draft), null, 2)
+}
+
+const decodeImport = Schema.decodeUnknownOption(Schema.fromJsonString(Workflow.Definition))
+
+export type Imported =
+  | { readonly type: "ok"; readonly workflow: Workflow.Definition }
+  | { readonly type: "format" }
+  | { readonly type: "problems"; readonly problems: readonly string[] }
+
+/**
+ * Reads a workflow someone pasted. It may sit in a code fence or have words around it. The id is made different from
+ * every one in `taken`, so importing never replaces a workflow.
+ */
+export function parseImport(text: string, taken: ReadonlySet<string>): Imported {
+  const start = text.indexOf("{")
+  const end = text.lastIndexOf("}")
+  const decoded = start < 0 || end < start ? Option.none() : decodeImport(text.slice(start, end + 1))
+
+  if (Option.isNone(decoded)) return { type: "format" }
+  const problems = Workflow.problems(decoded.value)
+
+  if (problems.length > 0) return { type: "problems", problems }
+
+  return { type: "ok", workflow: { ...decoded.value, id: slug(decoded.value.id, taken, "workflow") } }
 }

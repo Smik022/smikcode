@@ -1,6 +1,6 @@
 export * as WorkflowPlugin from "./workflow.js"
 
-import { ToolFailure } from "@opencode/ai"
+import { SystemPart, ToolFailure } from "@opencode/ai"
 import { define } from "@opencode/plugin/effect/plugin"
 import type { Context } from "@opencode/plugin/effect/plugin"
 import { Agent } from "@opencode/schema/agent"
@@ -62,12 +62,15 @@ Use outcome "pass" when the stage's goal is met and you have checked it. Use "fa
 // Where a user's own workflows are saved: for every project, or in this project's folder.
 const Scope = Schema.Literals(["global", "project"])
 
+// A workflow file the loader did not use, and why, so a typo does not make a workflow vanish silently.
+const Skipped = Schema.Struct({ source: Scope, file: Schema.String, reason: Schema.String })
+
 export const Definition = Rpc.define({
   id: "smikcode.workflow",
   methods: {
     list: {
       input: Schema.Struct({}),
-      output: Schema.Struct({ workflows: Schema.Array(Workflow.Listed) }),
+      output: Schema.Struct({ workflows: Schema.Array(Workflow.Listed), skipped: Schema.Array(Skipped) }),
     },
     // Writes the workflow as a file. A workflow with problems is not written, and the problems come back instead.
     save: {
@@ -97,6 +100,7 @@ export interface Loaded extends Workflow.Definition {
 /** What the engine needs from the outside world: the saved workflows and a way to run a check command. */
 export interface Deps {
   readonly load: Effect.Effect<ReadonlyArray<Loaded>>
+  readonly skipped: Effect.Effect<ReadonlyArray<typeof Skipped.Type>>
   readonly check: (command: string) => Effect.Effect<{ readonly passed: boolean; readonly output: string }>
   readonly save: (scope: typeof Scope.Type, workflow: Workflow.Definition) => Effect.Effect<ReadonlyArray<string>>
   readonly remove: (scope: typeof Scope.Type, id: string) => Effect.Effect<number>
@@ -118,8 +122,8 @@ export const Plugin = define({
         ? path.join(global.config, "workflows")
         : path.join(location.project.directory, Brand.configDirectory, "workflows")
 
-    // A file that cannot be read or does not describe a usable workflow is skipped, not fatal.
-    const read = Effect.fnUntraced(function* (source: "global" | "project") {
+    // A file that cannot be read or does not describe a usable workflow is skipped, not fatal, and the reason is kept.
+    const inspect = Effect.fnUntraced(function* (source: "global" | "project") {
       const folder = directory(source)
       const entries = yield* fs.readDirectoryEntries(folder).pipe(Effect.orElseSucceed(() => []))
       const files = entries.filter((entry) => entry.type === "file" && entry.name.endsWith(".json"))
@@ -127,14 +131,26 @@ export const Plugin = define({
         fs.readFileStringSafe(path.join(folder, entry.name)).pipe(
           Effect.orElseSucceed(() => undefined),
           Effect.map((text) => {
+            const file = path.join(folder, entry.name)
+            const skip = (reason: string) => ({ found: [], skipped: [{ source, file: entry.name, reason }] })
+            if (text === undefined) return skip("The file could not be read.")
             // Notepad and Windows PowerShell write a byte order mark, which JSON does not allow.
-            const parsed = text === undefined ? undefined : decodeFile(text.replace(/^﻿/u, ""))
-            if (parsed === undefined || parsed._tag === "None" || Workflow.problems(parsed.value).length > 0) return []
-            return [{ file: path.join(folder, entry.name), workflow: { ...parsed.value, source } }]
+            const parsed = decodeFile(text.replace(/^\uFEFF/u, ""))
+            if (parsed._tag === "None")
+              return skip(
+                "It is not a workflow. It needs an id, a name and stages, each stage an id, a title and instructions, and ids use only lower case letters, digits, - and _.",
+              )
+            const problems = Workflow.problems(parsed.value)
+            if (problems.length > 0) return skip(problems.join(" "))
+            return { found: [{ file, workflow: { ...parsed.value, source } }], skipped: [] }
           }),
         ),
       )
-      return loaded.flat()
+      return { entries: loaded.flatMap((item) => item.found), skipped: loaded.flatMap((item) => item.skipped) }
+    })
+    const read = (source: "global" | "project") => inspect(source).pipe(Effect.map((result) => result.entries))
+    const skipped = Effect.gen(function* () {
+      return [...(yield* inspect("global")).skipped, ...(yield* inspect("project")).skipped]
     })
 
     const load = Effect.gen(function* () {
@@ -186,7 +202,7 @@ export const Plugin = define({
         )
     })
 
-    yield* install(ctx, { load, check, save, remove })
+    yield* install(ctx, { load, skipped, check, save, remove })
   }),
 })
 
@@ -201,7 +217,10 @@ export const install = Effect.fnUntraced(function* (ctx: Context, deps: Deps) {
   })
   const save = (sessionID: Session.ID, run: Workflow.Run | undefined) =>
     patch(sessionID, (metadata) => Workflow.write(metadata, run))
-  const say = (sessionID: Session.ID, text: string) => ctx.session.synthetic({ sessionID, text, resume: false })
+  // The first line labels the note in the timeline; the rest is for reading in full.
+  const label = (text: string) => text.split("\n")[0]?.slice(0, 140)
+  const say = (sessionID: Session.ID, text: string) =>
+    ctx.session.synthetic({ sessionID, text, description: label(text), resume: false })
   const failed = (error: unknown) => new ToolFailure({ message: "Unable to update the workflow.", error })
 
   // Asks the default model for a workflow, again with what was wrong when a reply cannot be used. The id is made
@@ -252,8 +271,32 @@ export const install = Effect.fnUntraced(function* (ctx: Context, deps: Deps) {
 
   // Sessions whose stage check is running.
   const checking = new Set<string>()
+  const scope = yield* Effect.scope
 
-  type Send = (text: string) => Effect.Effect<unknown, unknown>
+  // A stage with a time limit pauses the run when it runs over. The step count says which start of the stage this is, so
+  // a timer from an earlier start of the same stage does nothing.
+  const timedOut = Effect.fnUntraced(function* (sessionID: Session.ID, steps: number) {
+    const latest = Workflow.read((yield* ctx.session.get({ sessionID })).metadata)
+    if (latest === undefined || latest.status !== "running" || (latest.steps ?? 0) !== steps) return
+    const stage = Workflow.stageOf(latest)
+    const minutes = stage?.timeoutMinutes ?? 0
+    yield* pause(sessionID, latest, `Stage "${stage?.title ?? latest.stage}" ran for more than ${minutes} minute${minutes === 1 ? "" : "s"}.`)
+    // The agent working on it stops too, once the run is paused so its end is not taken for the user stopping it.
+    const working = latest.child === null ? sessionID : Session.ID.make(latest.child)
+    yield* ctx.session.interrupt({ sessionID: working }).pipe(Effect.ignore)
+  })
+  const arm = (sessionID: Session.ID, run: Workflow.Run) => {
+    const minutes = Workflow.stageOf(run)?.timeoutMinutes
+    if (minutes === undefined) return Effect.void
+    return Effect.sleep(Duration.minutes(minutes)).pipe(
+      Effect.andThen(timedOut(sessionID, run.steps ?? 0)),
+      Effect.catchCause(() => Effect.void),
+      Effect.forkIn(scope),
+      Effect.asVoid,
+    )
+  }
+
+  type Send = (text: string, description?: string) => Effect.Effect<unknown, unknown>
 
   // Starts the run's current stage: in this chat, or in a session of its own for a fresh stage.
   const begin = Effect.fnUntraced(function* (sessionID: Session.ID, run: Workflow.Run, send: Send) {
@@ -287,16 +330,18 @@ export const install = Effect.fnUntraced(function* (ctx: Context, deps: Deps) {
       yield* save(sessionID, { ...run, child: child.id })
       yield* say(sessionID, Workflow.handoff(run))
       yield* ctx.session.prompt({ sessionID: child.id, text: Workflow.stagePrompt(run) })
-      return
+      return yield* arm(sessionID, run)
     }
     const wanted = stage.agent ?? run.origin
     if (wanted !== null && session.agent !== wanted)
       yield* ctx.session.switchAgent({ sessionID, agent: Agent.ID.make(wanted) })
     yield* save(sessionID, run)
-    yield* send(Workflow.stagePrompt(run))
+    yield* send(Workflow.stagePrompt(run), `${run.workflow.name}: stage ${index + 1} of ${run.workflow.stages.length}, ${stage.title}`)
+    yield* arm(sessionID, run)
   })
 
-  const nextStage = (sessionID: Session.ID): Send => (text) => ctx.session.synthetic({ sessionID, text, resume: true })
+  const nextStage = (sessionID: Session.ID): Send => (text, description) =>
+    ctx.session.synthetic({ sessionID, text, description, resume: true })
 
   // Acts on where routing went after a stage ended.
   const proceed = Effect.fnUntraced(function* (sessionID: Session.ID, step: Workflow.Step) {
@@ -327,13 +372,24 @@ export const install = Effect.fnUntraced(function* (ctx: Context, deps: Deps) {
       )
     }
     if (stage.exit === "command" && stage.command !== undefined) {
+      const command = stage.command
       // A second end event for this stage, such as a message sent while the check runs, must not run it again.
       if (checking.has(sessionID)) return
       checking.add(sessionID)
-      const result = yield* deps.check(stage.command).pipe(Effect.ensuring(Effect.sync(() => checking.delete(sessionID))))
-      // The run may have been stopped, or have moved on, while the check ran.
+      // The command is run on the user's machine, and a project's workflow file chose it, so it asks like the agent's own
+      // shell commands do: the permission rules and mode decide, and the user can say always.
+      const result = yield* ctx.permission
+        .assert({ sessionID, action: "shell", resources: [command], metadata: { workflow: run.workflow.name, stage: stage.title } })
+        .pipe(
+          Effect.andThen(deps.check(command)),
+          Effect.catchCause(() => Effect.succeed(undefined)),
+          Effect.ensuring(Effect.sync(() => checking.delete(sessionID))),
+        )
+      // The run may have been stopped, or have moved on, while the check waited or ran.
       const latest = Workflow.read((yield* ctx.session.get({ sessionID })).metadata)
       if (latest === undefined || latest.stage !== run.stage || latest.status !== "running") return
+      if (result === undefined)
+        return yield* pause(sessionID, run, `The check command \`${command}\` was not allowed to run.`)
       if (!result.passed)
         return yield* proceed(
           sessionID,
@@ -341,6 +397,26 @@ export const install = Effect.fnUntraced(function* (ctx: Context, deps: Deps) {
         )
     }
     yield* proceed(sessionID, Workflow.route(run, "pass", report.summary))
+  })
+
+  // Starts a run's stage again, or another stage. The session of the stage that was running is stopped after the new one has
+  // started, so its end is not mistaken for the user stopping the run.
+  const restage = Effect.fnUntraced(function* (sessionID: Session.ID, previous: Workflow.Run, next: Workflow.Run) {
+    yield* begin(sessionID, next, nextStage(sessionID))
+    const now = Workflow.read((yield* ctx.session.get({ sessionID })).metadata)
+    if (previous.child !== null && now?.child !== previous.child)
+      yield* ctx.session.interrupt({ sessionID: Session.ID.make(previous.child) }).pipe(Effect.ignore)
+  })
+
+  // Acts on where a run the user steered went: on, back, or to an end.
+  const follow = Effect.fnUntraced(function* (sessionID: Session.ID, previous: Workflow.Run, step: Workflow.Step) {
+    if (step.type === "enter") return yield* restage(sessionID, previous, step.run)
+    yield* finish(
+      sessionID,
+      step.run,
+      step.type === "done" ? `Workflow "${step.run.workflow.name}" is done.` : `Workflow stopped. ${step.run.note}`,
+    )
+    if (previous.child !== null) yield* ctx.session.interrupt({ sessionID: Session.ID.make(previous.child) }).pipe(Effect.ignore)
   })
 
   yield* ctx.tool
@@ -378,10 +454,17 @@ export const install = Effect.fnUntraced(function* (ctx: Context, deps: Deps) {
   // Only a session that has a stage to report on sees the tool.
   yield* ctx.session.hook("context", (event) =>
     Effect.gen(function* () {
-      if (!(Workflow.TOOL in event.tools)) return
       const session = yield* ctx.session.get({ sessionID: event.sessionID })
-      if (Workflow.readChild(session.metadata) === undefined && !Workflow.isOpen(Workflow.read(session.metadata)))
+      const child = Workflow.readChild(session.metadata)
+      const owner = child === undefined ? session : yield* ctx.session.get({ sessionID: Session.ID.make(child.parent) })
+      const run = Workflow.read(owner.metadata)
+      if (child === undefined && !Workflow.isOpen(run)) {
         delete event.tools[Workflow.TOOL]
+        return
+      }
+      // The stage's instructions ride along as a system part, so a long stage that gets compacted does not lose them.
+      if (run !== undefined && (child === undefined || run.child === session.id))
+        event.system.push(SystemPart.make(Workflow.stagePrompt(run)))
     }).pipe(Effect.catchCause(() => Effect.void)),
   )
 
@@ -423,7 +506,7 @@ export const install = Effect.fnUntraced(function* (ctx: Context, deps: Deps) {
     editor.add({
       name: "workflow",
       description:
-        "run a workflow of stages (/workflow <name> <task>, or new <description>, save, discard, list, status, approve, resume, stop)",
+        "run a workflow of stages (/workflow <name> <task>, or new <description>, save, discard, list, status, approve, changes <what to change>, skip, back, goto <stage>, resume, stop)",
       execute: (input) =>
         Effect.gen(function* () {
           const sessionID = input.sessionID
@@ -465,6 +548,31 @@ export const install = Effect.fnUntraced(function* (ctx: Context, deps: Deps) {
               `Saved "${named.name}" for ${action.scope === "project" ? "this project" : "every project"}. Change it in Settings, Workflows, or start it with /workflow ${named.id} <task>.`,
             )
           }
+          if (action.type === "changes") {
+            if (run?.status !== "waiting" || run.waiting !== "finish")
+              return yield* say(sessionID, "Nothing is waiting for your approval, so there is nothing to ask changes to.")
+            if (action.text === "")
+              return yield* say(sessionID, "Say what to change: /workflow changes <what should be different>")
+            return yield* restage(sessionID, run, Workflow.revise(run, action.text))
+          }
+          if (action.type === "skip" || action.type === "back" || action.type === "goto") {
+            if (run === undefined || run.status === "done") return yield* say(sessionID, "No workflow is running.")
+            const stages = run.workflow.stages
+            const position = stages.findIndex((stage) => stage.id === run.stage)
+            const open = { ...run, status: "running" as const, waiting: null, reported: null }
+            if (action.type === "skip")
+              return yield* follow(sessionID, run, Workflow.route(open, "pass", "Skipped by you."))
+            if (action.type === "back") {
+              const before = stages[position - 1]
+              if (before === undefined) return yield* say(sessionID, "This is the first stage, so there is nothing to go back to.")
+              return yield* follow(sessionID, run, Workflow.jump(open, before.id, "You went back."))
+            }
+            const wanted = action.stage
+            const target = stages.find((stage) => stage.id === wanted || stage.title.toLowerCase() === wanted)
+            if (target === undefined)
+              return yield* say(sessionID, `There is no stage called "${wanted}". The stages are: ${stages.map((stage) => stage.id).join(", ")}.`)
+            return yield* follow(sessionID, run, Workflow.jump(open, target.id, "You moved here."))
+          }
           if (action.type === "stop") {
             if (run === undefined) return yield* say(sessionID, "No workflow to stop.")
             // The run goes first, so whatever the interrupts set off finds nothing to pause or continue.
@@ -480,7 +588,6 @@ export const install = Effect.fnUntraced(function* (ctx: Context, deps: Deps) {
             // started again too: its stage begins afresh.
             if (run === undefined || run.status === "waiting" || run.status === "done")
               return yield* say(sessionID, "No paused or stalled workflow to resume.")
-            if (run.child !== null) yield* ctx.session.interrupt({ sessionID: Session.ID.make(run.child) }).pipe(Effect.ignore)
             const retries = { ...run.retries, [run.stage]: 0 }
             const again: Workflow.Run = {
               ...run,
@@ -491,8 +598,9 @@ export const install = Effect.fnUntraced(function* (ctx: Context, deps: Deps) {
               reported: null,
               child: null,
               note: "",
+              steps: (run.steps ?? 0) + 1,
             }
-            return yield* begin(sessionID, again, nextStage(sessionID))
+            return yield* restage(sessionID, run, again)
           }
           if (action.type === "approve") {
             if (run?.status !== "waiting") return yield* say(sessionID, "Nothing is waiting for your approval.")
@@ -520,7 +628,7 @@ export const install = Effect.fnUntraced(function* (ctx: Context, deps: Deps) {
 
   yield* ctx.rpc
     .register(Definition, {
-      list: () => deps.load.pipe(Effect.map((workflows) => ({ workflows }))),
+      list: () => Effect.all({ workflows: deps.load, skipped: deps.skipped }),
       describe: (input) =>
         draft(input.text).pipe(
           Effect.map((result) =>

@@ -269,4 +269,13 @@ describe("workflow text", () => {
     expect(Workflow.problems(make("ok", stage("a", { model: "anthropic/claude-opus#high" })))).toEqual([])
   })
 
+  test("parses the commands that steer a run", () => {
+    expect(Workflow.parse("skip")).toEqual({ type: "skip" })
+    expect(Workflow.parse("BACK")).toEqual({ type: "back" })
+    expect(Workflow.parse("goto Fix")).toEqual({ type: "goto", stage: "fix" })
+    expect(Workflow.parse("jump review")).toEqual({ type: "goto", stage: "review" })
+    expect(Workflow.parse("changes make it shorter")).toEqual({ type: "changes", text: "make it shorter" })
+    expect(Workflow.parse("revise")).toEqual({ type: "changes", text: "" })
+  })
+
 })

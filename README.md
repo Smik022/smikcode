@@ -158,6 +158,10 @@ You can also describe a workflow in words. The **Describe a workflow** box at th
 | `/workflow <name> <task>` | Starts a workflow on a task |
 | `/workflow status` | Shows the current run and its stages |
 | `/workflow approve` | Lets a stage that is waiting for you carry on |
+| `/workflow changes <what to change>` | While a stage waits for your approval, sends it back to the agent with what you want different. It does not count as a failure |
+| `/workflow skip` | Counts the current stage as passed without its work |
+| `/workflow back` | Goes back to the stage before |
+| `/workflow goto <stage>` | Jumps to a stage by its id or title, with its failed attempts forgotten |
 | `/workflow resume` | Starts the current stage again for a run that paused, got blocked, or stopped moving (for example after the server restarted) |
 | `/workflow stop` | Ends the run and stops the agent working on its stage |
 | `/workflow new <description>` | Drafts a workflow from a description |
@@ -172,6 +176,10 @@ Four workflows come with SmikCode:
 | `tdd` | Write a failing test, make it pass, clean up |
 | `review` | Build, then a reviewer that has not seen the work checks it and sends fixes back |
 | `pr` | Self-review, commit and draft a pull request, then push and open it only after you approve |
+
+**The strip.** Open its details (the arrow) to see what the agent reported for each stage, including the output of a check that failed, and a button that opens the session a fresh stage runs in. While a stage waits for your approval it shows what the agent reported, with **Approve** and **Request changes**. The ⋯ menu skips a stage, goes back, or jumps to any stage. A desktop notification tells you when a run needs you, is paused, stopped or finished, instead of one for every stage.
+
+**In the editor.** **Import** opens a pasted workflow (JSON, even with words around it) as a draft; **Duplicate** copies one to change; **Copy JSON** puts a workflow on the clipboard to send to someone. Agent and model fields suggest what the server has. A stage can have a **time limit**, and a workflow a **most stages in a run** limit (40 unless set), so a loop that never settles stops. Workflow files that could not be used, such as a typo in the JSON or a loop that never ends, are listed at the bottom of the page with the reason.
 
 The editor writes plain JSON files, so you can also write or share them by hand: `~/.config/smikcode/workflows/` (every project) or `.smikcode/workflows/` (this project, so teammates share it). A file with the same `id` as another replaces it, and a project's file wins over a global one, so you can adjust a prebuilt workflow.
 
@@ -211,11 +219,16 @@ The editor writes plain JSON files, so you can also write or share them by hand:
 | `exit` | How the stage ends. `agent` (default): the agent reports it with the `workflow_stage` tool. `command`: after the agent reports a pass, `command` must exit with 0, otherwise the output goes back to the agent. `approval`: after a pass, the run waits for `/workflow approve` |
 | `approveFirst` | Wait for `/workflow approve` before the stage starts |
 | `onPass` | The stage to go to after a pass, or `done`. Defaults to the next stage |
+| `timeoutMinutes` | Minutes the stage may take before the run pauses and the agent working on it stops. Without it a stage may take as long as it needs |
 | `onFail` | `{ "goto": <stage>, "max": <n> }`: where a failure goes and how many times. Without it a failed stage is tried again, up to 3 times. When the limit is reached the run stops |
 
-A `command` stage runs a shell command on your machine, so treat a project's `.smikcode/workflows/` like the scripts in its `package.json`: read a workflow that came from someone else before you pick it. Settings shows where each workflow comes from.
+A `command` stage runs a shell command on your machine, so treat a project's `.smikcode/workflows/` like the scripts in its `package.json`: read a workflow that came from someone else before you pick it. The check goes through the same permission prompt as the agent's own shell commands (the permission mode and your rules decide, and you can answer always), and a command you refuse pauses the run. A workflow can also set `maxSteps`, the most stages a run may enter in all. Settings shows where each workflow comes from.
 
 The run keeps a copy of the workflow it started with, so editing a file never changes a run in progress. If the agent ends its replies without reporting a stage, it is reminded up to 4 times before the run pauses. A workflow never pushes or opens a pull request on its own: while one runs, waits, is paused or is blocked, `git push`, `gh pr create`, `gh pr merge`, `gh release create`, `npm publish` and `docker push` always ask you first, even in Auto mode and with auto-approve on. This reads the command as written, so it is a guard rail and not a sandbox. A workflow cannot be called `list`, `new`, `save`, `done` or another word `/workflow` reads as a command, no stage can be called `done`, a stage's model must be written `provider/model`, and a workflow whose passes would go round in a loop forever is refused. A fresh stage that was running when the server restarted is picked up again when the project is opened.
+
+### Sessions can message each other
+
+An agent can find the other sessions of its project with the `session_list` tool and send one of them a message with `session_message`. The message arrives in that session as if you had written it, with a line saying which session it came from and how to answer. You are asked to allow each message (the permission rules and modes apply, so a rule or Auto mode can allow them), a session cannot message itself, and the other session cannot see the sender's conversation, so a message has to say everything it needs. A session can also start sub-sessions of its own with the `subagent` tool, and continue one later by its session id; a workflow's fresh stage runs in a child session of its own too.
 
 ### CLAUDE.md support
 

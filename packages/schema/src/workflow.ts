@@ -17,6 +17,9 @@ export const DONE = "done"
 /** Times a failing stage is tried again when it sets no limit of its own. */
 export const DEFAULT_RETRIES = 3
 
+/** Stages a run may enter, counting every retry and loop, when the workflow sets no limit of its own. */
+export const DEFAULT_MAX_STEPS = 40
+
 const ID = Schema.String.check(Schema.isPattern(/^[a-z0-9][a-z0-9_-]{0,62}$/u))
 const Count = Schema.Int.check(Schema.isGreaterThanOrEqualTo(0))
 
@@ -41,6 +44,8 @@ export const Stage = Schema.Struct({
   onPass: Schema.optional(Schema.String),
   /** Where a failure goes, and how many times. Without it a failed stage is tried again. */
   onFail: Schema.optional(Schema.Struct({ goto: ID, max: Schema.Int.check(Schema.isGreaterThanOrEqualTo(1)) })),
+  /** Minutes the stage may take before the run pauses. Without it a stage may take as long as it needs. */
+  timeoutMinutes: Schema.optional(Schema.Int.check(Schema.isGreaterThanOrEqualTo(1))),
 })
 export type Stage = typeof Stage.Type
 
@@ -49,6 +54,8 @@ export const Definition = Schema.Struct({
   name: Schema.String,
   description: Schema.optional(Schema.String),
   stages: Schema.Array(Stage),
+  /** Stages a run may enter in all, counting retries and loops, before it stops. Defaults to 40. */
+  maxSteps: Schema.optional(Schema.Int.check(Schema.isGreaterThanOrEqualTo(1))),
 })
 export type Definition = typeof Definition.Type
 
@@ -89,6 +96,8 @@ export const Run = Schema.Struct({
   child: Schema.NullOr(Schema.String),
   /** A short reason shown when the run paused or stopped. */
   note: Schema.String,
+  /** Stages entered so far, counting retries and loops. Runs saved before this was counted have none. */
+  steps: Schema.optional(Count),
 })
 export type Run = typeof Run.Type
 
@@ -130,7 +139,13 @@ export const clear = <T>(metadata: Metadata<T>) => put(metadata, KEY, undefined)
 export const clearDraft = <T>(metadata: Metadata<T>) => put(metadata, DRAFT, undefined)
 
 /** Words that /workflow reads as commands, so a workflow cannot be called one of them. */
-export const RESERVED = ["list", "status", "stop", "cancel", "resume", "retry", "approve", "next", "new", "draft", "create", "save", "discard", DONE]
+export const RESERVED = [
+  "list", "status", "stop", "cancel", "resume", "retry", "approve", "next", "new", "draft", "create", "save", "discard",
+  "skip", "back", "goto", "jump", "changes", "revise", DONE,
+]
+
+/** The start of a report that records the user asking for changes to a stage's result, rather than a failure. */
+export const CHANGES = "You asked for changes: "
 
 /** The message of the prompt a workflow forces for pushing and publishing. Clients never answer it for the user. */
 export const OUTWARD = "A workflow is running, so pushing and opening pull requests always need your approval."

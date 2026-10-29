@@ -1,5 +1,7 @@
 import { describe, expect } from "bun:test"
 import { DateTime, Effect, Queue, Stream } from "effect"
+import { ToolFailure } from "@opencode/ai"
+import { TestClock } from "effect/testing"
 import type { CommandDefinition } from "@opencode/plugin/effect/command"
 import type { PermissionEvaluation } from "@opencode/plugin/effect/permission"
 import type { SessionContext, SessionPrompt } from "@opencode/plugin/effect/session"
@@ -66,6 +68,10 @@ const run = Effect.fnUntraced(function* (
     workflow?: WorkflowPlugin.Loaded
     passing?: () => boolean
     noAgent?: boolean
+    /** Workflow files the loader skipped. */
+    skipped?: ReadonlyArray<{ source: "global" | "project"; file: string; reason: string }>
+    /** The user refuses the permission prompt for a check command. */
+    deny?: boolean
     /** How long a stage check takes, in milliseconds. */
     checkDelay?: number
     /** What the model answers to each request for a draft, in turn. "fail" makes the request fail. */
@@ -77,7 +83,7 @@ const run = Effect.fnUntraced(function* (
     [main, { id: main, metadata: undefined, parentID: undefined, agent: options.noAgent ? undefined : "build", model: { providerID: "p", id: "m" } }],
   ])
   const log = {
-    notes: new Array<{ sessionID: Session.ID; text: string; resume: boolean | undefined }>(),
+    notes: new Array<{ sessionID: Session.ID; text: string; resume: boolean | undefined; description: string | undefined }>(),
     prompts: new Array<{ sessionID: Session.ID; text: string }>(),
     switched: new Array<string>(),
     interrupted: new Array<Session.ID>(),
@@ -85,6 +91,7 @@ const run = Effect.fnUntraced(function* (
     asked: new Array<string>(),
     saved: new Array<{ scope: string; workflow: Workflow.Definition }>(),
     checks: new Array<string>(),
+    asserted: new Array<{ action: string; resources: ReadonlyArray<string> }>(),
   }
   const events = yield* Queue.unbounded<Ended>()
   let command: CommandDefinition | undefined
@@ -94,7 +101,7 @@ const run = Effect.fnUntraced(function* (
   let evaluate: ((input: PermissionEvaluation) => Effect.Effect<void>) | undefined
   let rpc:
     | {
-        list: () => Effect.Effect<{ workflows: ReadonlyArray<unknown> }>
+        list: () => Effect.Effect<{ workflows: ReadonlyArray<unknown>; skipped: ReadonlyArray<unknown> }>
         describe: (input: { text: string }) => Effect.Effect<{ workflow?: Workflow.Definition; problems: ReadonlyArray<string> }>
       }
     | undefined
@@ -147,7 +154,11 @@ const run = Effect.fnUntraced(function* (
         list: () => Effect.die("unused"),
         get: () => Effect.die("unused"),
         reply: () => Effect.die("unused"),
-        assert: () => Effect.die("unused"),
+        assert: (input) =>
+          Effect.suspend(() => {
+            log.asserted.push({ action: input.action, resources: input.resources })
+            return options.deny ? Effect.fail(new ToolFailure({ message: "The user said no." })) : Effect.void
+          }),
       },
       // oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion
       rpc: Object.assign(
@@ -211,7 +222,7 @@ const run = Effect.fnUntraced(function* (
           }),
         synthetic: (input) =>
           Effect.sync(() => {
-            log.notes.push({ sessionID: input.sessionID, text: input.text, resume: input.resume })
+            log.notes.push({ sessionID: input.sessionID, text: input.text, resume: input.resume, description: input.description })
             return SessionInbox.Synthetic.make({
               id: SessionMessage.ID.make("msg_workflow_test"),
               sessionID: input.sessionID,
@@ -233,6 +244,7 @@ const run = Effect.fnUntraced(function* (
     }),
     {
       load: Effect.succeed([workflow]),
+      skipped: Effect.succeed(options.skipped ?? []),
       check: () =>
         Effect.gen(function* () {
           log.checks.push("run")
@@ -274,9 +286,15 @@ const run = Effect.fnUntraced(function* (
   const finish = (sessionID: Session.ID, outcome: "pass" | "fail" | "blocked", summary = "done") =>
     report(sessionID, outcome, summary).pipe(Effect.andThen(end(succeeded(sessionID))))
   const toolsFor = (sessionID: Session.ID) => {
-    const request = { sessionID, tools: { read: {}, [Workflow.TOOL]: {} } }
+    const request = { sessionID, tools: { read: {}, [Workflow.TOOL]: {} }, system: new Array<unknown>() }
     // oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion
     return contextHook(request as unknown as SessionContext).pipe(Effect.map(() => Object.keys(request.tools)))
+  }
+  // What the context hook adds to the system prompt of a session.
+  const systemFor = (sessionID: Session.ID) => {
+    const request = { sessionID, tools: { [Workflow.TOOL]: {} }, system: new Array<{ text?: string }>() }
+    // oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion
+    return contextHook(request as unknown as SessionContext).pipe(Effect.map(() => request.system.map((part) => String(part.text ?? part))))
   }
   const typed = (text: string) => {
     const event = { sessionID: main, prompt: { text }, delivery: "steer" }
@@ -288,7 +306,7 @@ const run = Effect.fnUntraced(function* (
     // oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion
     return onEvaluate(event as unknown as PermissionEvaluation).pipe(Effect.as(event))
   }
-  return { sessions, log, state, runOf, say, end, report, finish, toolsFor, typed, ask, handlers }
+  return { sessions, log, state, runOf, say, end, report, finish, toolsFor, systemFor, typed, ask, handlers }
 })
 
 describe("workflow plugin", () => {
@@ -833,6 +851,158 @@ describe("workflow plugin", () => {
       yield* say("demo task")
       yield* report(main, "pass", "x".repeat(10_000))
       expect(Workflow.read(state()?.metadata)?.reported?.summary).toHaveLength(4_000)
+    }),
+  )
+
+  it.effect("labels what it adds to the timeline: notes by their first line, stage prompts by workflow and stage", () =>
+    Effect.gen(function* () {
+      const { say, finish, log } = yield* run()
+      yield* say("demo task")
+      yield* finish(main, "pass")
+      yield* say("status")
+      expect(log.notes.find((note) => note.text.startsWith('Stage "Review" is running'))?.description).toContain("Review")
+      expect(log.notes.at(-1)?.description).toBe(log.notes.at(-1)?.text.split("\n")[0])
+      const plain = yield* run({
+        workflow: stages({ id: "a", title: "A", instructions: "x" }, { id: "b", title: "B", instructions: "y" }),
+      })
+      yield* plain.say("demo task")
+      yield* plain.finish(main, "pass")
+      const next = plain.log.notes.find((note) => note.text.includes("Stage 2/2"))
+      expect(next?.description).toBe("Demo: stage 2 of 2, B")
+    }),
+  )
+
+  it.effect("asks before running a stage's check command, and pauses the run when the user says no", () =>
+    Effect.gen(function* () {
+      const checked = stages({ id: "ship", title: "Ship", instructions: "Ship it.", exit: "command", command: "make test" })
+      const allowed = yield* run({ workflow: checked })
+      yield* allowed.say("demo task")
+      yield* allowed.finish(main, "pass")
+      expect(allowed.log.asserted).toEqual([{ action: "shell", resources: ["make test"] }])
+      expect(allowed.log.checks).toHaveLength(1)
+
+      const refused = yield* run({ workflow: checked, deny: true })
+      yield* refused.say("demo task")
+      yield* refused.finish(main, "pass")
+      expect(refused.log.checks).toHaveLength(0)
+      expect(refused.runOf()).toMatchObject({ status: "paused" })
+      expect(refused.runOf()?.note).toContain("`make test` was not allowed to run")
+    }),
+  )
+
+  it.effect("sends a stage back with the user's changes, and only while its result waits for approval", () =>
+    Effect.gen(function* () {
+      const approval = stages(
+        { id: "spec", title: "Spec", instructions: "Write the spec.", exit: "approval" },
+        { id: "plan", title: "Plan", instructions: "Plan." },
+      )
+      const { say, finish, runOf, log } = yield* run({ workflow: approval })
+      yield* say("changes shorter")
+      expect(log.notes.at(-1)?.text).toContain("Nothing is waiting for your approval")
+      yield* say("demo task")
+      yield* finish(main, "pass", "a long spec")
+      expect(runOf()).toMatchObject({ status: "waiting", waiting: "finish" })
+      yield* say("changes")
+      expect(log.notes.at(-1)?.text).toContain("Say what to change")
+      yield* say("changes make it half the length")
+      expect(runOf()).toMatchObject({ stage: "spec", status: "running", waiting: null, reported: null })
+      const prompt = log.notes.at(-1)
+      expect(prompt?.text).toContain("asked for changes")
+      expect(prompt?.text).toContain("make it half the length")
+      expect(prompt?.resume).toBe(true)
+      // The request is not a failure, so it uses none of the stage's retries.
+      expect(runOf()?.retries).toEqual({})
+    }),
+  )
+
+  it.effect("lets the user skip a stage, go back, and jump to one, stopping the stage's own session", () =>
+    Effect.gen(function* () {
+      const { say, finish, runOf, log } = yield* run()
+      yield* say("demo task")
+      yield* say("back")
+      expect(log.notes.at(-1)?.text).toContain("first stage")
+      yield* say("skip")
+      expect(runOf()).toMatchObject({ stage: "review", status: "running" })
+      const child = runOf()?.child
+      expect(child).toBeTruthy()
+      yield* say("back")
+      expect(runOf()?.stage).toBe("build")
+      // The fresh review's session is stopped once the earlier stage has started, not before.
+      expect(log.interrupted).toContain(child as Session.ID)
+      yield* say("goto nowhere")
+      expect(log.notes.at(-1)?.text).toContain("build, review, fix")
+      yield* say("goto fix")
+      expect(runOf()?.stage).toBe("fix")
+      yield* say("goto Build")
+      expect(runOf()?.stage).toBe("build")
+      yield* finish(main, "pass")
+      yield* say("skip")
+      yield* say("skip")
+      expect(runOf()?.status).toBe("done")
+    }),
+  )
+
+  it.effect("stops a run that has entered its limit of stages", () =>
+    Effect.gen(function* () {
+      const loop: WorkflowPlugin.Loaded = {
+        ...stages({ id: "a", title: "A", instructions: "x", onFail: { goto: "a", max: 50 } }),
+        maxSteps: 3,
+      }
+      const { say, finish, runOf } = yield* run({ workflow: loop })
+      yield* say("demo task")
+      yield* finish(main, "fail")
+      yield* finish(main, "fail")
+      yield* finish(main, "fail")
+      expect(runOf()).toMatchObject({ status: "blocked" })
+      expect(runOf()?.note).toContain("went through 3 stages without finishing")
+    }),
+  )
+
+  it.effect("pauses a stage that runs over its time limit, and stops the agent working on it", () =>
+    Effect.gen(function* () {
+      const limited = stages(
+        { id: "slow", title: "Slow", instructions: "x", timeoutMinutes: 2 },
+        { id: "after", title: "After", instructions: "y" },
+      )
+      const { say, runOf, log } = yield* run({ workflow: limited })
+      yield* say("demo task")
+      yield* TestClock.adjust("1 minute")
+      expect(runOf()?.status).toBe("running")
+      yield* TestClock.adjust("90 seconds")
+      expect(runOf()).toMatchObject({ status: "paused" })
+      expect(runOf()?.note).toContain("ran for more than 2 minutes")
+      expect(log.interrupted).toContain(main)
+
+      // A stage that finished in time is not paused by a timer that was set for it.
+      const quick = yield* run({ workflow: limited })
+      yield* quick.say("demo task")
+      yield* quick.finish(main, "pass")
+      yield* TestClock.adjust("10 minutes")
+      expect(quick.runOf()?.stage).toBe("after")
+      expect(quick.runOf()?.status).toBe("running")
+    }),
+  )
+
+  it.effect("keeps the stage's instructions in the system prompt of the session working on it", () =>
+    Effect.gen(function* () {
+      const { say, finish, systemFor, runOf } = yield* run()
+      expect(yield* systemFor(main)).toEqual([])
+      yield* say("demo task")
+      expect((yield* systemFor(main)).join("\n")).toContain("Stage 1/3: Build")
+      yield* finish(main, "pass")
+      const child = Session.ID.make(String(runOf()?.child))
+      expect((yield* systemFor(child)).join("\n")).toContain("Stage 2/3: Review")
+      // A session the run has moved on from gets nothing.
+      yield* finish(child, "fail")
+      expect(yield* systemFor(child)).toEqual([])
+    }),
+  )
+
+  it.effect("tells the editor which workflow files were skipped and why", () =>
+    Effect.gen(function* () {
+      const { handlers } = yield* run({ skipped: [{ source: "project", file: "typo.json", reason: "It is not a workflow." }] })
+      const listed = yield* handlers.list()
+      expect(listed.skipped).toEqual([{ source: "project", file: "typo.json", reason: "It is not a workflow." }])
     }),
   )
 

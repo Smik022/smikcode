@@ -12,16 +12,20 @@ import { SegmentedControl, SegmentedControlItem } from "@opencode/ui/segmented-c
 import { Switch } from "@opencode/ui/switch"
 import { TextInput } from "@opencode/ui/text-input"
 import { Textarea } from "@opencode/ui/textarea"
+import { Tooltip } from "@opencode/ui/tooltip"
 import { showToast } from "@opencode/ui/toast"
 import { useExtension } from "../sdk"
 import type definition from "./index"
 import { Flow } from "./diagram"
 import {
   blank,
+  asJson,
   blankStage,
+  copyOf,
   fromDefinition,
   missing,
   moveStage,
+  parseImport,
   removeStage,
   slug,
   toDefinition,
@@ -31,7 +35,12 @@ import {
 
 const RPC = "smikcode.workflow"
 
-const decodeList = Schema.decodeUnknownOption(Schema.Struct({ workflows: Schema.Array(Workflow.Listed) }))
+// A workflow file the backend did not use, and why.
+const Skipped = Schema.Struct({ source: Schema.Literals(["global", "project"]), file: Schema.String, reason: Schema.String })
+
+const decodeList = Schema.decodeUnknownOption(
+  Schema.Struct({ workflows: Schema.Array(Workflow.Listed), skipped: Schema.optional(Schema.Array(Skipped)) }),
+)
 
 const decodeSaved = Schema.decodeUnknownOption(Schema.Struct({ problems: Schema.Array(Schema.String) }))
 
@@ -62,7 +71,9 @@ export default function WorkflowPage() {
     describe: { text: string; problems: string[] }
     /** The open draft was made from a description, so it has not been looked at yet. */
     drafted: boolean
-  }>({ problems: [], describe: { text: "", problems: [] }, drafted: false })
+    /** The pasted workflow being imported, and why the last paste could not be used. */
+    importing: { open: boolean; text: string; problems: string[] }
+  }>({ problems: [], describe: { text: "", problems: [] }, drafted: false, importing: { open: false, text: "", problems: [] } })
 
   // The backend that holds the workflows: the routed session's, else a session's that is open, else the local one.
   const target = createMemo(() => {
@@ -95,9 +106,27 @@ export default function WorkflowPage() {
 
       if (Option.isNone(decoded)) throw new Error("Unexpected reply")
 
-      return decoded.value.workflows
+      return { workflows: decoded.value.workflows, skipped: decoded.value.skipped ?? [] }
     },
   }))
+
+  const workflows = () => list.data?.workflows
+  const skipped = () => list.data?.skipped ?? []
+
+  // What the agent and model fields can be filled from: the agents and models of the project's server.
+  const agents = createMemo(() => {
+    const current = target()
+
+    return (current?.server.data.location.agent.list({ directory: current.location?.directory ?? "" }) ?? []).map((agent) => agent.name)
+  })
+
+  const models = createMemo(() => {
+    const current = target()
+
+    return (current?.server.data.location.model.list({ directory: current.location?.directory ?? "" }) ?? []).map(
+      (model) => `${model.providerID}/${model.id}`,
+    )
+  })
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: [ctx.id] })
 
@@ -162,7 +191,7 @@ export default function WorkflowPage() {
   }))
 
   // Ids a new workflow must not take: those of the workflows there are, and the words /workflow reads as commands.
-  const taken = () => new Set([...(list.data ?? []).map((item) => item.id), ...Workflow.RESERVED])
+  const taken = () => new Set([...(workflows() ?? []).map((item) => item.id), ...Workflow.RESERVED])
   // Project files need a project, which is known once a session is open.
   const projectKnown = () => target()?.location !== undefined
 
@@ -178,6 +207,39 @@ export default function WorkflowPage() {
     })
 
   const close = () => setState({ draft: undefined, problems: [], drafted: false })
+
+  const scopeFor = (item: Workflow.Listed) => (item.source === "builtin" ? (projectKnown() ? "project" : "global") : item.source)
+
+  const duplicate = (item: Workflow.Listed) =>
+    setState({
+      draft: copyOf(item, ctx.t("duplicate.name", { name: item.name }), scopeFor(item), taken()),
+      problems: [],
+      drafted: false,
+    })
+
+  // The workflow as its file holds it, for sending to someone or keeping elsewhere.
+  const copyJson = (item: Workflow.Listed) =>
+    void navigator.clipboard
+      .writeText(asJson(fromDefinition(item, scopeFor(item))))
+      .then(() => showToast({ title: ctx.t("toast.copied", { name: item.name }) }))
+      .catch(() => showToast({ title: ctx.t("toast.copyFailed") }))
+
+  const openImport = () => {
+    const imported = parseImport(state.importing.text, taken())
+
+    if (imported.type === "ok") {
+      setState({
+        draft: fromDefinition(imported.workflow, "global", true),
+        problems: [],
+        drafted: false,
+        importing: { open: false, text: "", problems: [] },
+      })
+
+      return
+    }
+
+    setState("importing", "problems", imported.type === "format" ? [ctx.t("import.format")] : [...imported.problems])
+  }
 
   const draftIt = () => {
     const text = state.describe.text.trim()
@@ -197,13 +259,22 @@ export default function WorkflowPage() {
           </div>
           <Show when={!state.draft}>
             <Button
+              data-action="settings-workflow-import"
+              size="normal"
+              variant="neutral"
+              class="shrink-0 whitespace-nowrap"
+              onClick={() => setState("importing", "open", (open) => !open)}
+            >
+              {ctx.t("import")}
+            </Button>
+            <Button
               data-action="settings-workflow-new"
               size="normal"
               variant="neutral"
               icon="plus"
               class="shrink-0 whitespace-nowrap"
               // Until the workflows are known, a new one could be given the id of one that exists.
-              disabled={!list.data}
+              disabled={!workflows()}
               onClick={create}
             >
               {ctx.t("new")}
@@ -216,6 +287,40 @@ export default function WorkflowPage() {
           when={state.draft}
           fallback={
             <>
+            <Show when={state.importing.open}>
+              <section class="flex flex-col gap-2" aria-label={ctx.t("import.title")}>
+                <Field label={ctx.t("import.title")} hint={ctx.t("import.hint")}>
+                  <Textarea
+                    data-action="settings-workflow-import-text"
+                    aria-label={ctx.t("import.title")}
+                    class="!w-full font-mono"
+                    rows={6}
+                    value={state.importing.text}
+                    placeholder={ctx.t("import.placeholder")}
+                    onInput={(event) => setState("importing", "text", event.currentTarget.value)}
+                  />
+                </Field>
+                <div class="flex items-start gap-3">
+                  <Button
+                    data-action="settings-workflow-import-open"
+                    size="normal"
+                    variant="contrast"
+                    class="shrink-0 whitespace-nowrap"
+                    disabled={state.importing.text.trim() === "" || !workflows()}
+                    onClick={openImport}
+                  >
+                    {ctx.t("import.open")}
+                  </Button>
+                  <Show when={state.importing.problems.length > 0}>
+                    <div class="flex flex-col gap-1 pt-1" role="alert">
+                      <For each={state.importing.problems}>
+                        {(problem) => <p class="text-13-regular text-text-danger-base">{problem}</p>}
+                      </For>
+                    </div>
+                  </Show>
+                </div>
+              </section>
+            </Show>
             <section class="flex flex-col gap-2" aria-label={ctx.t("describe.title")}>
               <Field label={ctx.t("describe.title")} hint={ctx.t("describe.hint")}>
                 <Textarea
@@ -264,7 +369,7 @@ export default function WorkflowPage() {
                   </div>
                 }
               >
-                <Show when={list.data} fallback={<p class="py-4 text-13-regular text-v2-text-text-muted">{ctx.t("loading")}</p>}>
+                <Show when={workflows()} fallback={<p class="py-4 text-13-regular text-v2-text-text-muted">{ctx.t("loading")}</p>}>
                   {(items) => (
                     <div data-component="settings-list">
                       <For each={items()} fallback={<p class="py-4 text-13-regular text-v2-text-text-muted">{ctx.t("empty")}</p>}>
@@ -282,7 +387,21 @@ export default function WorkflowPage() {
                                 {ctx.plural("stages", item.stages.length)}
                               </div>
                             </div>
-                            <div data-slot="settings-row-control">
+                            <div data-slot="settings-row-control" class="gap-1.5">
+                              <Tooltip placement="top" value={ctx.t("copy")}>
+                                <IconButton
+                                  data-action="settings-workflow-copy"
+                                  type="button"
+                                  size="small"
+                                  variant="ghost-muted"
+                                  icon={<Icon name="outline-copy" />}
+                                  aria-label={ctx.t("copy")}
+                                  onClick={() => copyJson(item)}
+                                />
+                              </Tooltip>
+                              <Button data-action="settings-workflow-duplicate" size="small" variant="neutral" onClick={() => duplicate(item)}>
+                                {ctx.t("duplicate")}
+                              </Button>
                               <Button size="small" variant="neutral" onClick={() => edit(item)}>
                                 {ctx.t("edit")}
                               </Button>
@@ -295,6 +414,20 @@ export default function WorkflowPage() {
                 </Show>
               </Show>
             </section>
+            <Show when={skipped().length > 0}>
+              <section class="flex flex-col gap-1" aria-label={ctx.t("skipped.title")} data-component="workflow-skipped">
+                <h3 class="settings-section-title">{ctx.t("skipped.title")}</h3>
+                <p class="text-12-regular text-v2-text-text-muted">{ctx.t("skipped.hint")}</p>
+                <For each={skipped()}>
+                  {(item) => (
+                    <p class="text-13-regular text-v2-text-text-base">
+                      <span class="font-[530]">{ctx.t("skipped.item", { file: item.file, source: ctx.t(`source.${item.source}`) })}</span>
+                      <span class="text-v2-text-text-muted">{` ${item.reason}`}</span>
+                    </p>
+                  )}
+                </For>
+              </section>
+            </Show>
             </>
           }
         >
@@ -305,7 +438,9 @@ export default function WorkflowPage() {
               problems={state.problems}
               drafted={state.drafted}
               saving={save.isPending || remove.isPending}
-              source={list.data?.find((item) => item.id === draft().id)?.source}
+              source={workflows()?.find((item) => item.id === draft().id)?.source}
+              agents={agents()}
+              models={models()}
               change={(next) => setState("draft", reconcile(next, { key: "id" }))}
               name={(name) => {
                 // A workflow's id follows its name until the first save, and never changes afterwards.
@@ -314,6 +449,12 @@ export default function WorkflowPage() {
               }}
               onSave={(next) => save.mutate({ workflow: toDefinition(next), scope: next.scope })}
               onDelete={(next) => remove.mutate({ id: next.id, name: next.name, scope: next.scope })}
+              onCopy={(next) =>
+                void navigator.clipboard
+                  .writeText(asJson(next))
+                  .then(() => showToast({ title: ctx.t("toast.copied", { name: next.name }) }))
+                  .catch(() => showToast({ title: ctx.t("toast.copyFailed") }))
+              }
               onClose={close}
             />
           )}
@@ -325,6 +466,9 @@ export default function WorkflowPage() {
 
 function Editor(props: {
   draft: Draft
+  /** Agent names and models to suggest in the stage fields. */
+  agents: readonly string[]
+  models: readonly string[]
   /** The draft came from a description. */
   drafted: boolean
   projectKnown: boolean
@@ -336,6 +480,7 @@ function Editor(props: {
   name: (name: string) => void
   onSave: (draft: Draft) => void
   onDelete: (draft: Draft) => void
+  onCopy: (draft: Draft) => void
   onClose: () => void
 }) {
   const ctx = useExtension<typeof definition>()
@@ -416,6 +561,27 @@ function Editor(props: {
             </div>
           </div>
         </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2">
+          <Field label={ctx.t("field.maxSteps")} hint={ctx.t("field.maxSteps.hint")}>
+            <TextInput
+              data-action="settings-workflow-max-steps"
+              aria-label={ctx.t("field.maxSteps")}
+              class="w-full"
+              type="number"
+              numeric
+              min={1}
+              value={props.draft.maxSteps}
+              placeholder={String(Workflow.DEFAULT_MAX_STEPS)}
+              onInput={(event) => props.change({ ...props.draft, maxSteps: event.currentTarget.value })}
+            />
+          </Field>
+        </div>
+        <datalist id="workflow-agents">
+          <For each={props.agents}>{(name) => <option value={name} />}</For>
+        </datalist>
+        <datalist id="workflow-models">
+          <For each={props.models}>{(name) => <option value={name} />}</For>
+        </datalist>
       </section>
 
       <section class="flex flex-col gap-3">
@@ -512,6 +678,15 @@ function Editor(props: {
           </Show>
         </div>
         <div class="flex items-center gap-2">
+          <Button
+            data-action="settings-workflow-copy-json"
+            size="normal"
+            variant="ghost-muted"
+            disabled={props.saving}
+            onClick={() => props.onCopy(props.draft)}
+          >
+            {ctx.t("copy")}
+          </Button>
           <Button size="normal" variant="ghost-muted" disabled={props.saving} onClick={props.onClose}>
             {ctx.t("cancel")}
           </Button>
@@ -633,6 +808,7 @@ function StageCard(props: {
           <TextInput
             aria-label={ctx.t("stage.agent")}
             class="w-full"
+            list="workflow-agents"
             value={props.stage.agent}
             placeholder={ctx.t("stage.agent.placeholder")}
             onInput={(event) => props.onChange({ agent: event.currentTarget.value })}
@@ -643,6 +819,7 @@ function StageCard(props: {
             <TextInput
               aria-label={ctx.t("stage.model")}
               class="w-full"
+              list="workflow-models"
               value={props.stage.model}
               placeholder={ctx.t("stage.model.placeholder")}
               onInput={(event) => props.onChange({ model: event.currentTarget.value })}
@@ -698,6 +875,19 @@ function StageCard(props: {
             value={props.stage.failMax}
             placeholder={String(Workflow.DEFAULT_RETRIES)}
             onInput={(event) => props.onChange({ failMax: event.currentTarget.value })}
+          />
+        </Field>
+        <Field label={ctx.t("stage.timeout")}>
+          <TextInput
+            data-action="settings-workflow-stage-timeout"
+            aria-label={ctx.t("stage.timeout")}
+            class="w-full"
+            type="number"
+            numeric
+            min={1}
+            value={props.stage.timeout}
+            placeholder={ctx.t("stage.timeout.placeholder")}
+            onInput={(event) => props.onChange({ timeout: event.currentTarget.value })}
           />
         </Field>
       </div>

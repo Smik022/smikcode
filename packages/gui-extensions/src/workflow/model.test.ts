@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { Workflow } from "@opencode/schema/workflow"
 import { Schema } from "effect"
-import { blank, blankStage, fromDefinition, missing, moveStage, removeStage, slug, toDefinition } from "./model"
+import { asJson, blank, blankStage, copyOf, fromDefinition, missing, moveStage, parseImport, removeStage, slug, toDefinition } from "./model"
 
 const review: Workflow.Definition = {
   id: "review",
@@ -106,4 +106,40 @@ describe("workflow editor model", () => {
     draft.stages[0] = { ...blankStage(draft, "Plan"), instructions: "Do", exit: "command" }
     expect(missing(draft)).toEqual(["command"])
   })
+  test("time limits and the stage budget are kept, and a field that is not a whole number is dropped", () => {
+    const limited: Workflow.Definition = {
+      id: "limited",
+      name: "Limited",
+      maxSteps: 12,
+      stages: [
+        { id: "a", title: "A", instructions: "x", timeoutMinutes: 30 },
+        { id: "b", title: "B", instructions: "y" },
+      ],
+    }
+
+    expect(toDefinition(fromDefinition(limited, "global"))).toEqual(limited)
+    const draft = fromDefinition(limited, "global")
+    draft.maxSteps = "0"
+    draft.stages[0]!.timeout = "soon"
+    expect(toDefinition(draft)).toEqual({ id: "limited", name: "Limited", stages: limited.stages.map((stage) => ({ id: stage.id, title: stage.title, instructions: stage.instructions })) })
+  })
+
+  test("a copy is a new workflow with its own id and name, and exports as the file's text", () => {
+    const copy = copyOf(review, "Build, then review copy", "project", new Set(["review", "review-copy"]))
+
+    expect(copy).toMatchObject({ id: "review-copy-2", name: "Build, then review copy", fresh: true, scope: "project" })
+    expect(copy.stages.map((stage) => stage.id)).toEqual(review.stages.map((stage) => stage.id))
+    expect(JSON.parse(asJson(copy))).toEqual({ ...review, id: "review-copy-2", name: "Build, then review copy" })
+  })
+
+  test("imports a pasted workflow from text around it, without replacing one that has its id", () => {
+    const pasted = `Here you go:\n\`\`\`json\n${JSON.stringify(review)}\n\`\`\``
+
+    expect(parseImport(pasted, new Set())).toEqual({ type: "ok", workflow: review })
+    expect(parseImport(pasted, new Set(["review"]))).toMatchObject({ type: "ok", workflow: { id: "review-2" } })
+    expect(parseImport("not a workflow", new Set())).toEqual({ type: "format" })
+    expect(parseImport('{ "id": "x", "name": "X" }', new Set())).toEqual({ type: "format" })
+    expect(parseImport(JSON.stringify({ ...review, id: "save" }), new Set())).toMatchObject({ type: "problems" })
+  })
+
 })

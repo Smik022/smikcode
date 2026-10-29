@@ -1,6 +1,7 @@
 import { createEffect, createMemo, onCleanup, untrack } from "solid-js"
 import { createStore } from "solid-js/store"
 import { Schema } from "effect"
+import { Workflow } from "@opencode/schema/workflow"
 import type { SessionInfo } from "@opencode/client/promise"
 import type { ServerSDK } from "@/runtime/server/client"
 import type { Data } from "@opencode/client/solid"
@@ -224,6 +225,9 @@ export function createServerNotificationState(input: {
 
       if (session.parentID) return
 
+      // A workflow's stages end one after another; the run says when it needs the user or is over.
+      if (Workflow.read(session.metadata)?.status === "running") return
+
       const hasOpenTab = sessionIDHasOpenTab(tabs.store, input.key, sessionID)
 
       if (hasOpenTab && settings.sounds.agentEnabled()) {
@@ -263,6 +267,41 @@ export function createServerNotificationState(input: {
       }
     })
   }
+
+  // Where each session's workflow run stood when last looked at. A session first seen already waiting or finished is not
+  // announced: only a change seen here is.
+  const runs = new Map<string, string>()
+
+  const announceWorkflow = (session: SessionInfo, run: Workflow.Run) => {
+    if (!sessionIDHasOpenTab(tabs.store, input.key, session.id)) return
+    const id = `${input.key}\0workflow:${session.id}:${run.status}:${run.steps ?? 0}`
+
+    if (settings.sounds.agentEnabled()) void input.coordinator.sound(id, () => playSoundById(settings.sounds.agent()))
+
+    if (!settings.notifications.agent()) return
+    void input.coordinator.system(id, () =>
+      platform.notify(
+        language.t(`notification.workflow.${run.status === "waiting" ? "waiting" : run.status}.title`),
+        `${run.workflow.name}: ${session.title ?? session.id}`,
+        () => openNotificationSession(tabs, input.key, session.id),
+      ),
+    )
+  }
+
+  createEffect(() => {
+    for (const session of input.data.session.list()) {
+      if (session.parentID) continue
+      const run = Workflow.read(session.metadata)
+      const now = run === undefined ? "none" : `${run.status}:${run.stage}:${run.steps ?? 0}`
+      const before = runs.get(session.id)
+
+      if (before === now) continue
+      runs.set(session.id, now)
+
+      if (before === undefined || run === undefined || run.status === "running") continue
+      untrack(() => announceWorkflow(session, run))
+    }
+  })
 
   const unsub = input.sdk.event.listen((event) => {
     if (event.type === "session.execution.failed") {

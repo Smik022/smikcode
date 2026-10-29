@@ -10,6 +10,8 @@ export const PENDING = Stored.PENDING
 export const DONE = Stored.DONE
 export const DRAFT = Stored.DRAFT
 export const DEFAULT_RETRIES = Stored.DEFAULT_RETRIES
+export const DEFAULT_MAX_STEPS = Stored.DEFAULT_MAX_STEPS
+export const CHANGES = Stored.CHANGES
 export const Stage = Stored.Stage
 export type Stage = Stored.Stage
 export const Definition = Stored.Definition
@@ -105,6 +107,7 @@ function enter(run: Run, stage: Stage, changes: Pick<Run, "reports" | "retries">
     reported: null,
     child: null,
     note: "",
+    steps: (run.steps ?? 0) + 1,
   }
 }
 
@@ -153,9 +156,12 @@ export function route(run: Run, outcome: "pass" | "fail", summary: string): Step
     nudges: 0,
     note,
   })
+  const limit = run.workflow.maxSteps ?? DEFAULT_MAX_STEPS
   const go = (target: string, retries: Run["retries"]): Step => {
     const stage = stages.find((item) => item.id === target)
     if (stage === undefined) return { type: "blocked", run: ended("blocked", `Stage "${target}" does not exist.`) }
+    if ((run.steps ?? 0) >= limit)
+      return { type: "blocked", run: ended("blocked", `The workflow went through ${limit} stages without finishing, so it stopped.`) }
     return { type: "enter", run: enter(run, stage, { reports, retries }) }
   }
 
@@ -165,10 +171,33 @@ export function route(run: Run, outcome: "pass" | "fail", summary: string): Step
     return go(target, run.retries)
   }
   const used = run.retries[current.id] ?? 0
-  const limit = current.onFail?.max ?? DEFAULT_RETRIES
-  if (used >= limit)
+  const attempts = current.onFail?.max ?? DEFAULT_RETRIES
+  if (used >= attempts)
     return { type: "blocked", run: ended("blocked", `Stage "${current.title}" failed ${used + 1} times, so the workflow stopped.`) }
   return go(current.onFail?.goto ?? current.id, { ...run.retries, [current.id]: used + 1 })
+}
+
+/**
+ * Moves the run to a stage the user chose, whatever the stage's own routing says. The stage starts afresh, with its
+ * failed attempts forgotten. The stage budget does not apply: the user is steering.
+ */
+export function jump(run: Run, target: string, note: string): Step {
+  const stage = run.workflow.stages.find((item) => item.id === target)
+  if (stage === undefined) return { type: "blocked", run: { ...run, status: "blocked", note: `Stage "${target}" does not exist.` } }
+  const current = run.workflow.stages.find((item) => item.id === run.stage)
+  const reports = current === undefined ? run.reports : [...run.reports, { stage: current.id, outcome: "pass" as const, summary: note }].slice(-MAX_REPORTS)
+  return { type: "enter", run: enter(run, stage, { reports, retries: { ...run.retries, [stage.id]: 0 } }) }
+}
+
+/** The run back at its current stage, with the user's request for changes to what it reported. */
+export function revise(run: Run, text: string): Run {
+  const stage = run.workflow.stages.find((item) => item.id === run.stage)
+  const reports = [...run.reports, { stage: run.stage, outcome: "fail" as const, summary: `${CHANGES}${text}` }].slice(-MAX_REPORTS)
+  return {
+    ...(stage === undefined ? run : enter(run, stage, { reports, retries: run.retries })),
+    status: "running",
+    waiting: null,
+  }
 }
 
 /** The instructions for the run's current stage, with what the earlier stages reported. */
@@ -188,16 +217,18 @@ export function stagePrompt(run: Run) {
     `Stage ${position}: ${stage.title}`,
     stage.instructions.trim(),
     ...(earlier ? ["", `Result of the earlier stage "${titleOf(run, earlier.stage)}":`, earlier.summary] : []),
-    ...(last?.outcome === "fail"
-      ? [
-          "",
-          last.stage === stage.id
-            ? "The last attempt at this stage failed:"
-            : `Stage "${titleOf(run, last.stage)}" failed and sent the work back to this stage:`,
-          last.summary,
-          "Fix what it names.",
-        ]
-      : []),
+    ...(last?.outcome === "fail" && last.summary.startsWith(CHANGES)
+      ? ["", "The user looked at your result for this stage and asked for changes:", last.summary.slice(CHANGES.length), "Make those changes."]
+      : last?.outcome === "fail"
+        ? [
+            "",
+            last.stage === stage.id
+              ? "The last attempt at this stage failed:"
+              : `Stage "${titleOf(run, last.stage)}" failed and sent the work back to this stage:`,
+            last.summary,
+            "Fix what it names.",
+          ]
+        : []),
     ...(stage.context === "fresh"
       ? [
           "",
@@ -259,6 +290,10 @@ export type Action =
   | { readonly type: "new"; readonly text: string }
   | { readonly type: "save"; readonly scope: "global" | "project" }
   | { readonly type: "discard" }
+  | { readonly type: "skip" }
+  | { readonly type: "back" }
+  | { readonly type: "goto"; readonly stage: string }
+  | { readonly type: "changes"; readonly text: string }
   | { readonly type: "start"; readonly name: string; readonly task: string }
 
 export function parse(input: string): Action {
@@ -273,5 +308,9 @@ export function parse(input: string): Action {
   if (word === "new" || word === "draft" || word === "create") return { type: "new", text: (match[2] ?? "").trim() }
   if (word === "save") return { type: "save", scope: (match[2] ?? "").trim().toLowerCase() === "project" ? "project" : "global" }
   if (word === "discard") return { type: "discard" }
+  if (word === "skip") return { type: "skip" }
+  if (word === "back") return { type: "back" }
+  if (word === "goto" || word === "jump") return { type: "goto", stage: (match[2] ?? "").trim().toLowerCase() }
+  if (word === "changes" || word === "revise") return { type: "changes", text: (match[2] ?? "").trim() }
   return { type: "start", name: word, task: (match[2] ?? "").trim() }
 }

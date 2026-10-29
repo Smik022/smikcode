@@ -19,6 +19,34 @@ export const RenameInput = Schema.Struct({
 
 const RenameOutput = Schema.Struct({ sessionID: Session.ID, title: Schema.String })
 
+export const ListInput = Schema.Struct({
+  query: Schema.optionalKey(Schema.String).annotate({ description: "Text to search for in session titles." }),
+  limit: Schema.optionalKey(Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 50 }))).annotate({
+    description: "Maximum number of sessions to return. Defaults to 20.",
+  }),
+})
+
+const ListOutput = Schema.Struct({
+  sessions: Schema.Array(
+    Schema.Struct({
+      id: Session.ID,
+      title: Schema.String,
+      agent: Schema.optionalKey(Schema.String),
+      updated: Schema.Number.annotate({ description: "When the session last changed, as a Unix time in milliseconds." }),
+      current: Schema.Boolean.annotate({ description: "Whether this is the session you are working in." }),
+    }),
+  ).annotate({ description: "Sessions of this project, most recently changed first." }),
+})
+
+export const MessageInput = Schema.Struct({
+  sessionID: Session.ID.annotate({ description: "The session to send the message to. Find it with session_list." }),
+  text: Schema.String.check(Schema.isMinLength(1)).annotate({
+    description: "The message. Write it so it makes sense without this conversation: the other session has not seen it.",
+  }),
+})
+
+const MessageOutput = Schema.Struct({ sessionID: Session.ID, delivered: Schema.Boolean })
+
 export const MoveInput = Schema.Struct({
   sessionID: Schema.optionalKey(Session.ID).annotate({ description: "Omit to move the current session." }),
   directory: AbsolutePath.check(Schema.isMinLength(1)).annotate({
@@ -126,6 +154,77 @@ export const Plugin = {
               Effect.mapError((error) => new ToolFailure({ message: `Unable to rename session ${sessionID}`, error })),
             )
           },
+        })
+        draft.add({
+          name: "session_list",
+          description:
+            "List the other sessions of this project, most recently changed first, so you can tell which one to send a message to. Read only.",
+          input: ListInput,
+          output: ListOutput,
+          options: { namespace: "opencode", codemode: true },
+          execute: (input, context) =>
+            ctx.session
+              .list({ limit: input.limit ?? 20, search: input.query, parentID: null, directory: ctx.location.directory })
+              .pipe(
+                Effect.map((listed) => {
+                  const sessions = listed.data.map((session) => ({
+                    id: session.id,
+                    title: session.title ?? "",
+                    ...(session.agent === undefined ? {} : { agent: String(session.agent) }),
+                    updated: Number(session.time.updated),
+                    current: session.id === context.sessionID,
+                  }))
+                  const lines = sessions.map((session) => `${session.id}  ${session.title}${session.current ? "  (this session)" : ""}`)
+                  return { output: { sessions }, content: sessions.length === 0 ? "No sessions." : lines.join("\n") }
+                }),
+                Effect.mapError((error) => new ToolFailure({ message: "Unable to list sessions", error })),
+              ),
+        })
+        draft.add({
+          name: "session_message",
+          description: [
+            "Send a message to another session of this project, as if the user had written it there. The session starts working on it, or picks it up after what it is doing now.",
+            "The user is asked to allow each message. The other session cannot see this conversation, so say everything it needs, and tell it to answer with session_message if you want a reply.",
+            "Do not use it to start an exchange that has no end.",
+          ].join(" "),
+          input: MessageInput,
+          output: MessageOutput,
+          options: { namespace: "opencode", codemode: true, pinned: true },
+          execute: (input, context) =>
+            Effect.gen(function* () {
+              if (input.sessionID === context.sessionID)
+                return yield* new ToolFailure({ message: "A session cannot send a message to itself." })
+              const target = yield* ctx.session
+                .get({ sessionID: input.sessionID })
+                .pipe(Effect.mapError(() => new ToolFailure({ message: `There is no session ${input.sessionID}.` })))
+              const mine = yield* ctx.session.get({ sessionID: context.sessionID })
+              yield* permission.assert({
+                action: "session_message",
+                resources: [target.id],
+                sessionID: context.sessionID,
+                agent: context.agent,
+                source: { type: "tool", messageID: context.messageID, id: context.id },
+                metadata: { to: target.title ?? "", text: input.text },
+              })
+              yield* ctx.session.prompt({
+                sessionID: target.id,
+                text: [
+                  `Message from another session ("${mine.title ?? mine.id}", ${mine.id}):`,
+                  "",
+                  input.text,
+                  "",
+                  `To answer, use the session_message tool with sessionID ${mine.id}.`,
+                ].join("\n"),
+              })
+              return {
+                output: { sessionID: target.id, delivered: true },
+                content: `Sent the message to ${target.title ?? target.id}. Its answer, if any, arrives as a message in this session.`,
+              }
+            }).pipe(
+              Effect.mapError((error) =>
+                error instanceof ToolFailure ? error : new ToolFailure({ message: "Unable to send the message", error }),
+              ),
+            ),
         })
         draft.add({
           name: "session_move",

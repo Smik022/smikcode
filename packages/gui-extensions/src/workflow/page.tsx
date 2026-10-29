@@ -140,7 +140,14 @@ export default function WorkflowPage() {
             <span class="text-11-regular text-v2-text-text-muted">{ctx.t("description")}</span>
           </div>
           <Show when={!state.draft}>
-            <Button data-action="settings-workflow-new" size="normal" variant="neutral" icon="plus" onClick={create}>
+            <Button
+              data-action="settings-workflow-new"
+              size="normal"
+              variant="neutral"
+              icon="plus"
+              class="shrink-0 whitespace-nowrap"
+              onClick={create}
+            >
               {ctx.t("new")}
             </Button>
           </Show>
@@ -259,37 +266,27 @@ function Editor(props: {
         </Button>
       </div>
 
-      <section class="settings-section">
+      <section class="flex flex-col gap-3">
+        <Field label={ctx.t("field.name")}>
+          <TextInput
+            data-action="settings-workflow-name"
+            aria-label={ctx.t("field.name")}
+            class="w-full"
+            value={props.draft.name}
+            placeholder={ctx.t("field.name.placeholder")}
+            onInput={(event) => props.name(event.currentTarget.value)}
+          />
+        </Field>
+        <Field label={ctx.t("field.description")}>
+          <TextInput
+            aria-label={ctx.t("field.description")}
+            class="w-full"
+            value={props.draft.description}
+            placeholder={ctx.t("field.description.placeholder")}
+            onInput={(event) => props.change({ ...props.draft, description: event.currentTarget.value })}
+          />
+        </Field>
         <div data-component="settings-list">
-          <div data-component="settings-row">
-            <div data-slot="settings-row-copy">
-              <div data-slot="settings-row-title">{ctx.t("field.name")}</div>
-            </div>
-            <div data-slot="settings-row-control">
-              <TextInput
-                data-action="settings-workflow-name"
-                aria-label={ctx.t("field.name")}
-                class="w-[280px] max-w-full"
-                value={props.draft.name}
-                placeholder={ctx.t("field.name.placeholder")}
-                onInput={(event) => props.name(event.currentTarget.value)}
-              />
-            </div>
-          </div>
-          <div data-component="settings-row">
-            <div data-slot="settings-row-copy">
-              <div data-slot="settings-row-title">{ctx.t("field.description")}</div>
-            </div>
-            <div data-slot="settings-row-control">
-              <TextInput
-                aria-label={ctx.t("field.description")}
-                class="w-[280px] max-w-full"
-                value={props.draft.description}
-                placeholder={ctx.t("field.description.placeholder")}
-                onInput={(event) => props.change({ ...props.draft, description: event.currentTarget.value })}
-              />
-            </div>
-          </div>
           <div data-component="settings-row">
             <div data-slot="settings-row-copy">
               <div data-slot="settings-row-title">{ctx.t("field.scope")}</div>
@@ -464,6 +461,7 @@ function StageCard(props: {
       <Textarea
         data-action="settings-workflow-stage-instructions"
         aria-label={ctx.t("stage.instructions")}
+        class="!w-full"
         rows={4}
         value={props.stage.instructions}
         placeholder={ctx.t("stage.instructions.placeholder")}
@@ -484,6 +482,7 @@ function StageCard(props: {
         <Field label={ctx.t("stage.agent")}>
           <TextInput
             aria-label={ctx.t("stage.agent")}
+            class="w-full"
             value={props.stage.agent}
             placeholder={ctx.t("stage.agent.placeholder")}
             onInput={(event) => props.onChange({ agent: event.currentTarget.value })}
@@ -493,6 +492,7 @@ function StageCard(props: {
           <Field label={ctx.t("stage.model")}>
             <TextInput
               aria-label={ctx.t("stage.model")}
+              class="w-full"
               value={props.stage.model}
               placeholder={ctx.t("stage.model.placeholder")}
               onInput={(event) => props.onChange({ model: event.currentTarget.value })}
@@ -515,7 +515,7 @@ function StageCard(props: {
           <Field label={ctx.t("stage.command")}>
             <TextInput
               aria-label={ctx.t("stage.command")}
-              class="font-mono"
+              class="w-full font-mono"
               value={props.stage.command}
               placeholder={ctx.t("stage.command.placeholder")}
               onInput={(event) => props.onChange({ command: event.currentTarget.value })}
@@ -541,6 +541,7 @@ function StageCard(props: {
         <Field label={ctx.t("stage.max")}>
           <TextInput
             aria-label={ctx.t("stage.max")}
+            class="w-full"
             type="number"
             numeric
             min={1}
@@ -576,6 +577,9 @@ function Field(props: { label: string; hint?: string; children: JSX.Element }) {
   )
 }
 
+// The select shows nothing for an empty value, so "the default" travels as this placeholder and is turned back here.
+const DEFAULT = "(default)"
+
 function Choose(props: {
   label: string
   options: Choice[]
@@ -583,17 +587,21 @@ function Choose(props: {
   disabled?: boolean
   onSelect: (value: string) => void
 }) {
+  const options = createMemo(() =>
+    props.options.map((option) => ({ value: option.value === "" ? DEFAULT : option.value, label: option.label })),
+  )
+
   return (
     <Select
       aria-label={props.label}
       disabled={props.disabled}
-      options={props.options}
-      current={props.options.find((option) => option.value === props.value)}
+      options={options()}
+      current={options().find((option) => option.value === (props.value === "" ? DEFAULT : props.value))}
       value={(option) => option.value}
       label={(option) => option.label}
       placement="bottom-start"
       gutter={6}
-      onSelect={(option) => option && props.onSelect(option.value)}
+      onSelect={(option) => option && props.onSelect(option.value === DEFAULT ? "" : option.value)}
     />
   )
 }

@@ -208,6 +208,8 @@ The editor writes plain JSON files, so you can also write or share them by hand:
 | `onPass` | The stage to go to after a pass, or `done`. Defaults to the next stage |
 | `onFail` | `{ "goto": <stage>, "max": <n> }`: where a failure goes and how many times. Without it a failed stage is tried again, up to 3 times. When the limit is reached the run stops |
 
+A `command` stage runs a shell command on your machine, so treat a project's `.smikcode/workflows/` like the scripts in its `package.json`: read a workflow that came from someone else before you pick it. Settings shows where each workflow comes from.
+
 The run keeps a copy of the workflow it started with, so editing a file never changes a run in progress. If the agent ends its replies without reporting a stage, it is reminded up to 4 times before the run pauses. A workflow never pushes or opens a pull request on its own: while one runs, `git push`, `gh pr create` and `gh pr merge` always ask you first, even in Auto mode.
 
 ### CLAUDE.md support

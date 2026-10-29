@@ -69,9 +69,14 @@ export function WorkflowStrip(props: { session: SessionModel }) {
                 </For>
               </div>
               <Show when={current().status !== "done"}>
-                <span class="min-w-0 truncate text-v2-text-text-muted">
-                  {language.t("session.workflow.stage", { current: position() + 1, total: current().workflow.stages.length })}
-                  {": "}
+                {/* The dots show where the run is, so the stage's title gets the room; the count is in the tooltip. */}
+                <span
+                  class="min-w-0 truncate text-v2-text-text-muted"
+                  title={language.t("session.workflow.stage", {
+                    current: position() + 1,
+                    total: current().workflow.stages.length,
+                  })}
+                >
                   {title()}
                 </span>
               </Show>

@@ -97,6 +97,7 @@ import { CommandPlugin } from "./command.js"
 import { IdentityPlugin } from "./identity.js"
 import { BridgePlugin } from "./bridge.js"
 import { GoalPlugin } from "./goal.js"
+import { WorkflowPlugin } from "./workflow.js"
 import { ModePlugin } from "./mode.js"
 import { PlanPlugin } from "./plan.js"
 import { ModelsDevPlugin } from "./models-dev.js"
@@ -234,6 +235,7 @@ const pre = [
   PlanPlugin.Plugin,
   ModePlugin.Plugin,
   GoalPlugin.Plugin,
+  WorkflowPlugin.Plugin,
   BridgePlugin.Plugin,
   CommandPlugin.Plugin,
   SkillPlugin.Plugin,

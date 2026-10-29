@@ -8,7 +8,7 @@ SmikCode is an AI coding agent for your terminal, browser and desktop. It reads 
 
 - **Its own identity:** the `smikcode` command, the SmikCode name throughout the UI, and its own config and data folders, server port and desktop app ID. It installs side by side with opencode and never shares state with it.
 - **Its own look:** four switchable skins in the terminal UI, web app and desktop app. A skin changes layout, borders, labels and logo as well as colors (see [Skins](#skins)).
-- **Extra agent features:** LSP diagnostics after edits, a todo tool, trimming of old tool output in long sessions, local session export, [lifecycle hooks](#lifecycle-hooks), [persistent memory](#memory), [CLAUDE.md support](#claudemd-support), [permission modes](#permission-modes) and [goals](#goals), borrowed from Claude Code and Codex.
+- **Extra agent features:** LSP diagnostics after edits, a todo tool, trimming of old tool output in long sessions, local session export, [lifecycle hooks](#lifecycle-hooks), [persistent memory](#memory), [CLAUDE.md support](#claudemd-support), [permission modes](#permission-modes), [goals](#goals) and your own [workflows](#workflows), borrowed from Claude Code and Codex.
 
 ## Run from source
 
@@ -141,6 +141,70 @@ In the web and desktop apps, the picker next to the model in the prompt box (**D
 - `/goal` shows the current goal; `/goal pause`, `/goal resume` and `/goal clear` manage it.
 - Stopping the agent yourself pauses the goal.
 - After 10 automatic continuations in a row the goal pauses so a stuck agent can't loop forever; `/goal resume` gives it another 10.
+
+### Workflows
+
+A workflow is your own development process, written as stages the agent goes through in order: write a spec, write a failing test, build, review with fresh eyes, open a pull request. `/workflow <name> <task>` starts one in the current session, and the agent works through the stages one by one.
+
+| Command | What it does |
+|---|---|
+| `/workflow` or `/workflow list` | Lists the workflows, and where the current run stands |
+| `/workflow <name> <task>` | Starts a workflow on a task |
+| `/workflow status` | Shows the current run and its stages |
+| `/workflow approve` | Lets a stage that is waiting for you carry on |
+| `/workflow resume` | Retries a run that paused or got blocked |
+| `/workflow stop` | Ends the run |
+
+Four workflows come with SmikCode:
+
+| Name | Stages |
+|---|---|
+| `sdd` | Write a spec (you approve it), plan, build, check the result against the spec |
+| `tdd` | Write a failing test, make it pass, clean up |
+| `review` | Build, then a reviewer that has not seen the work checks it and sends fixes back |
+| `pr` | Self-review, commit and draft a pull request, then push and open it only after you approve |
+
+To make your own, save a JSON file in `~/.config/smikcode/workflows/` (every project) or `.smikcode/workflows/` (this project, so teammates share it). A file with the same `id` as another replaces it, and a project's file wins over a global one, so you can adjust a prebuilt workflow.
+
+```jsonc
+{
+  "id": "tdd-strict",
+  "name": "Strict TDD",
+  "stages": [
+    { "id": "red", "title": "Failing test", "instructions": "Write one failing test for the task." },
+    {
+      "id": "green",
+      "title": "Make it pass",
+      "instructions": "Make the test pass with the simplest change.",
+      "exit": "command",
+      "command": "bun test",
+      "onFail": { "goto": "green", "max": 4 }
+    },
+    {
+      "id": "review",
+      "title": "Fresh review",
+      "instructions": "Review the change. Do not edit files.",
+      "context": "fresh",
+      "agent": "plan",
+      "onPass": "done",
+      "onFail": { "goto": "green", "max": 2 }
+    }
+  ]
+}
+```
+
+| Stage field | Meaning |
+|---|---|
+| `id`, `title`, `instructions` | Required. What the agent is asked to do in the stage |
+| `context` | `same` (default) keeps going in this chat. `fresh` runs the stage in a new session that has not seen the earlier work, which is what makes a review fresh. The first stage always runs in the current chat |
+| `agent` | Agent for the stage, such as `plan` for a read-only review. The session goes back to its own agent afterwards |
+| `model` | Model for a `fresh` stage, written `provider/model` or `provider/model#variant` |
+| `exit` | How the stage ends. `agent` (default): the agent reports it with the `workflow_stage` tool. `command`: after the agent reports a pass, `command` must exit with 0, otherwise the output goes back to the agent. `approval`: after a pass, the run waits for `/workflow approve` |
+| `approveFirst` | Wait for `/workflow approve` before the stage starts |
+| `onPass` | The stage to go to after a pass, or `done`. Defaults to the next stage |
+| `onFail` | `{ "goto": <stage>, "max": <n> }`: where a failure goes and how many times. Without it a failed stage is tried again, up to 3 times. When the limit is reached the run stops |
+
+The run keeps a copy of the workflow it started with, so editing a file never changes a run in progress. If the agent ends its replies without reporting a stage, it is reminded up to 4 times before the run pauses. A workflow never pushes or opens a pull request on its own: while one runs, `git push`, `gh pr create` and `gh pr merge` always ask you first, even in Auto mode.
 
 ### CLAUDE.md support
 

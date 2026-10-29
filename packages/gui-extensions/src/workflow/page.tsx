@@ -8,12 +8,14 @@ import { Button } from "@opencode/ui/button"
 import { Icon } from "@opencode/ui/icon"
 import { IconButton } from "@opencode/ui/icon-button"
 import { Select } from "@opencode/ui/select"
+import { SegmentedControl, SegmentedControlItem } from "@opencode/ui/segmented-control"
 import { Switch } from "@opencode/ui/switch"
 import { TextInput } from "@opencode/ui/text-input"
 import { Textarea } from "@opencode/ui/textarea"
 import { showToast } from "@opencode/ui/toast"
 import { useExtension } from "../sdk"
 import type definition from "./index"
+import { Flow } from "./diagram"
 import {
   blank,
   blankStage,
@@ -41,6 +43,8 @@ type Saving = { workflow: Workflow.Definition; scope: Draft["scope"] }
 const json = (input: Saving): JsonValue => JSON.parse(JSON.stringify(input))
 
 const EXITS = ["agent", "command", "approval"] as const
+
+const VIEWS = ["cards", "flow"] as const
 
 /** The Workflows settings page: the saved workflows, and a card editor for the one being made or changed. */
 export default function WorkflowPage() {
@@ -240,6 +244,11 @@ function Editor(props: {
   onClose: () => void
 }) {
   const ctx = useExtension<typeof definition>()
+  // The stage chosen in the flow; the first one until another is picked, or when the chosen one is removed.
+  const [view, setView] = createStore<{ selected?: string }>({})
+  const flow = () => ctx.stores.editor.value.view === "flow"
+  const current = createMemo(() => props.draft.stages.find((stage) => stage.id === view.selected) ?? props.draft.stages[0])
+  const currentIndex = () => props.draft.stages.findIndex((stage) => stage.id === current()?.id)
 
   const patch = (id: string, change: Partial<DraftStage>) =>
     props.change({
@@ -306,34 +315,71 @@ function Editor(props: {
       </section>
 
       <section class="flex flex-col gap-3">
-        <h3 class="settings-section-title">{ctx.t("stage.heading")}</h3>
-        <For each={props.draft.stages}>
-          {(stage, index) => (
-            <StageCard
-              stage={stage}
-              index={index()}
-              stages={props.draft.stages}
-              onChange={(change) => patch(stage.id, change)}
-              onMove={(direction) => props.change(moveStage(props.draft, stage.id, direction))}
-              onRemove={() => props.change(removeStage(props.draft, stage.id))}
-            />
-          )}
-        </For>
+        <div class="flex items-center justify-between gap-3">
+          <h3 class="settings-section-title">{ctx.t("stage.heading")}</h3>
+          <SegmentedControl
+            value={flow() ? "flow" : "cards"}
+            onChange={(value) => {
+              const view = VIEWS.find((item) => item === value)
+
+              if (view) ctx.stores.editor.update((draft) => void (draft.view = view))
+            }}
+          >
+            <SegmentedControlItem value="cards" data-action="settings-workflow-view-cards">
+              {ctx.t("view.cards")}
+            </SegmentedControlItem>
+            <SegmentedControlItem value="flow" data-action="settings-workflow-view-flow">
+              {ctx.t("view.flow")}
+            </SegmentedControlItem>
+          </SegmentedControl>
+        </div>
+
+        <Show
+          when={flow()}
+          fallback={
+            <For each={props.draft.stages}>
+              {(stage, index) => (
+                <StageCard
+                  stage={stage}
+                  index={index()}
+                  stages={props.draft.stages}
+                  onChange={(change) => patch(stage.id, change)}
+                  onMove={(direction) => props.change(moveStage(props.draft, stage.id, direction))}
+                  onRemove={() => props.change(removeStage(props.draft, stage.id))}
+                />
+              )}
+            </For>
+          }
+        >
+          <Flow stages={props.draft.stages} selected={current()?.id} onSelect={(id) => setView("selected", id)} />
+          <p class="text-11-regular leading-[var(--line-height-compact)] text-v2-text-text-muted">{ctx.t("flow.hint")}</p>
+          <Show when={current()}>
+            {(stage) => (
+              <StageCard
+                stage={stage()}
+                index={currentIndex()}
+                stages={props.draft.stages}
+                onChange={(change) => patch(stage().id, change)}
+                onMove={(direction) => props.change(moveStage(props.draft, stage().id, direction))}
+                onRemove={() => props.change(removeStage(props.draft, stage().id))}
+              />
+            )}
+          </Show>
+        </Show>
+
         <div>
           <Button
             data-action="settings-workflow-add-stage"
             size="small"
             variant="neutral"
             icon="plus"
-            onClick={() =>
-              props.change({
-                ...props.draft,
-                stages: [
-                  ...props.draft.stages,
-                  blankStage(props.draft, ctx.t("stage.default", { number: props.draft.stages.length + 1 })),
-                ],
-              })
-            }
+            onClick={() => {
+              const added = blankStage(props.draft, ctx.t("stage.default", { number: props.draft.stages.length + 1 }))
+
+              props.change({ ...props.draft, stages: [...props.draft.stages, added] })
+              // In the flow the new stage is the one to fill in next.
+              setView("selected", added.id)
+            }}
           >
             {ctx.t("stage.add")}
           </Button>

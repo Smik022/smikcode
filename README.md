@@ -148,7 +148,7 @@ A workflow is your own development process, written as stages the agent goes thr
 
 In the desktop app, pick one from the workflow menu in the prompt box (next to the permission mode). Your next message becomes the task. A strip above the prompt box then shows the stage the run is in, and offers Approve, Resume and Stop when they apply. You can also type `/workflow <name> <task>`.
 
-**Settings → Workflows** is where you build your own: a card per stage (instructions, this chat or a fresh session, agent and model, how the stage ends, where a pass or a failure goes) and a choice to save it for every project or only for this one. A prebuilt workflow can be changed the same way, and deleting your copy brings the prebuilt one back.
+**Settings → Workflows** is where you build your own. Switch between **Cards** and **Flow** above the stages: Flow draws the stages as nodes with an arrow for what happens after a pass and a dashed one for what happens after a failure, and choosing a node edits it. Each stage sets its instructions, whether it runs in this chat or a fresh session, its agent and model, how it ends, and where a pass or a failure goes. You also choose whether to save the workflow for every project or only for this one. A prebuilt workflow can be changed the same way, and deleting your copy brings the prebuilt one back.
 
 | Command | What it does |
 |---|---|

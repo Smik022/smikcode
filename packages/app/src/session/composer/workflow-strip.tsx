@@ -33,8 +33,64 @@ export function WorkflowStrip(props: { session: SessionModel }) {
     void server.api.session.update({ sessionID: info.id, metadata: Workflow.clear(info.metadata) }).catch(failed)
   }
 
+  // A workflow drafted from a description waits to be saved or dropped. A run in progress takes the strip first.
+  const drafted = createMemo(() => (run() === undefined ? Workflow.draft(props.session.data.info()?.metadata) : undefined))
+
   return (
-    <Show when={run()}>
+    <>
+      <Show when={drafted()}>
+        {(current) => (
+          <div
+            data-component="session-workflow-strip"
+            data-status="draft"
+            class="relative z-0 -mb-3 flex items-start justify-between gap-3 rounded-xl bg-v2-background-bg-base px-3 pt-1.5 pb-[18px] shadow-[inset_0_0_0_0.5px_var(--v2-border-border-base)]"
+          >
+            <div class="flex h-8 min-w-0 flex-1 items-center gap-2 text-[13px] font-[440] leading-[var(--line-height-compact)]">
+              <Icon name="branch-out" class="shrink-0 text-v2-text-text-muted" />
+              <span class="min-w-0 shrink truncate font-[530] text-v2-text-text-base">{current().name}</span>
+              <span class="shrink-0 truncate text-v2-text-text-muted">
+                {language.plural("session.workflow.stages", current().stages.length)}
+              </span>
+              <span class="shrink-0 truncate text-v2-text-text-faint">{language.t("session.workflow.draft")}</span>
+            </div>
+            <div class="flex h-8 shrink-0 items-center gap-1.5">
+              <Button
+                data-action="session-workflow-save"
+                type="button"
+                size="small"
+                variant="ghost-faint"
+                icon="check"
+                class="![font-weight:530]"
+                onClick={() => command("save")}
+              >
+                {language.t("session.workflow.save")}
+              </Button>
+              <Button
+                data-action="session-workflow-save-project"
+                type="button"
+                size="small"
+                variant="ghost-faint"
+                class="![font-weight:530]"
+                onClick={() => command("save project")}
+              >
+                {language.t("session.workflow.saveProject")}
+              </Button>
+              <Tooltip placement="top" value={language.t("session.workflow.discard")}>
+                <IconButton
+                  data-action="session-workflow-discard"
+                  type="button"
+                  size="small"
+                  variant="ghost-muted"
+                  icon={<Icon name="outline-xmark" />}
+                  aria-label={language.t("session.workflow.discard")}
+                  onClick={() => command("discard")}
+                />
+              </Tooltip>
+            </div>
+          </div>
+        )}
+      </Show>
+      <Show when={run()}>
       {(current) => {
         const position = () => current().workflow.stages.findIndex((stage) => stage.id === current().stage)
         const title = () => current().workflow.stages[position()]?.title ?? current().stage
@@ -143,6 +199,7 @@ export function WorkflowStrip(props: { session: SessionModel }) {
           </div>
         )
       }}
-    </Show>
+      </Show>
+    </>
   )
 }

@@ -150,6 +150,8 @@ In the desktop app, pick one from the workflow menu in the prompt box (next to t
 
 **Settings → Workflows** is where you build your own. Switch between **Cards** and **Flow** above the stages: Flow draws the stages as nodes with an arrow for what happens after a pass and a dashed one for what happens after a failure, and choosing a node edits it. Each stage sets its instructions, whether it runs in this chat or a fresh session, its agent and model, how it ends, and where a pass or a failure goes. You also choose whether to save the workflow for every project or only for this one. A prebuilt workflow can be changed the same way, and deleting your copy brings the prebuilt one back.
 
+You can also describe a workflow in words. The **Describe a workflow** box at the top of the page, or `/workflow new <what it should do>` in the prompt box, asks your default model to draft the stages. The page opens the draft in the editor so you can check and change it; `/workflow new` keeps the draft in the session with a strip above the prompt box that offers Save and Save in this project, and `/workflow save`, `/workflow save project` and `/workflow discard` do the same by typing. Nothing is saved until you say so. This needs a model that works, and a draft that comes back unusable is sent back to the model up to three times with what was wrong.
+
 | Command | What it does |
 |---|---|
 | `/workflow` or `/workflow list` | Lists the workflows, and where the current run stands |
@@ -158,6 +160,9 @@ In the desktop app, pick one from the workflow menu in the prompt box (next to t
 | `/workflow approve` | Lets a stage that is waiting for you carry on |
 | `/workflow resume` | Retries a run that paused or got blocked |
 | `/workflow stop` | Ends the run |
+| `/workflow new <description>` | Drafts a workflow from a description |
+| `/workflow save` / `/workflow save project` | Keeps the draft for every project, or for this project |
+| `/workflow discard` | Drops the draft |
 
 Four workflows come with SmikCode:
 

@@ -20,6 +20,7 @@ import { Location } from "../location.js"
 import { Model } from "../model.js"
 import { ShellSelect } from "../shell/select.js"
 import { Workflow } from "../workflow.js"
+import { WorkflowDraft } from "../workflow-draft.js"
 import { WorkflowPresets } from "../workflow-presets.js"
 
 const GATE_TIMEOUT_SECONDS = 600
@@ -57,6 +58,11 @@ export const Definition = Rpc.define({
     save: {
       input: Schema.Struct({ workflow: Workflow.Definition, scope: Scope }),
       output: Schema.Struct({ problems: Schema.Array(Schema.String) }),
+    },
+    // Asks the default model to draft a workflow from a description. Nothing is saved: the draft comes back to be checked.
+    describe: {
+      input: Schema.Struct({ text: Schema.String }),
+      output: Schema.Struct({ workflow: Schema.optional(Workflow.Definition), problems: Schema.Array(Schema.String) }),
     },
     // Deletes the files in one scope that define the workflow. A prebuilt workflow of the same id comes back.
     remove: {
@@ -180,6 +186,33 @@ export const install = Effect.fnUntraced(function* (ctx: Context, deps: Deps) {
     patch(sessionID, (metadata) => Workflow.write(metadata, run))
   const say = (sessionID: Session.ID, text: string) => ctx.session.synthetic({ sessionID, text, resume: false })
   const failed = (error: unknown) => new ToolFailure({ message: "Unable to update the workflow.", error })
+
+  // Asks the default model for a workflow, again with what was wrong when a reply cannot be used. The id is made
+  // different from every workflow there is, so a draft never replaces one.
+  const draft = (description: string): Effect.Effect<WorkflowDraft.Result> =>
+    Effect.gen(function* () {
+      if (description.trim() === "") return { workflow: undefined, problems: ["Describe the workflow you want."] }
+      const taken = new Set((yield* deps.load).map((item) => item.id))
+      const attempt = (number: number, problems: ReadonlyArray<string>): Effect.Effect<WorkflowDraft.Result> =>
+        ctx.generate.text({ prompt: WorkflowDraft.prompt(description, [...taken], problems) }).pipe(
+          Effect.map((reply) => WorkflowDraft.parse(reply.text, taken)),
+          Effect.flatMap((result) =>
+            result.workflow !== undefined || number + 1 >= WorkflowDraft.MAX_ATTEMPTS
+              ? Effect.succeed(result)
+              : attempt(number + 1, result.problems),
+          ),
+          Effect.catchCause((cause) =>
+            Effect.logWarning("failed to draft a workflow", { cause }).pipe(
+              Effect.as<WorkflowDraft.Result>({
+                workflow: undefined,
+                problems: ["The model did not answer. Check that a model is set up and working, then try again."],
+              }),
+            ),
+          ),
+        )
+
+      return yield* attempt(0, [])
+    })
 
   // Puts the session back on the agent it had before a stage asked for another one.
   const restoreAgent = Effect.fnUntraced(function* (sessionID: Session.ID, run: Workflow.Run) {
@@ -358,7 +391,8 @@ export const install = Effect.fnUntraced(function* (ctx: Context, deps: Deps) {
   yield* ctx.command.transform((editor) =>
     editor.add({
       name: "workflow",
-      description: "run a workflow of stages (/workflow <name> <task>, or list, status, approve, resume, stop)",
+      description:
+        "run a workflow of stages (/workflow <name> <task>, or new <description>, save, discard, list, status, approve, resume, stop)",
       execute: (input) =>
         Effect.gen(function* () {
           const sessionID = input.sessionID
@@ -371,6 +405,35 @@ export const install = Effect.fnUntraced(function* (ctx: Context, deps: Deps) {
           if (action.type === "list")
             return yield* say(sessionID, [Workflow.listing(definitions), ...(run ? ["", Workflow.describe(run)] : [])].join("\n"))
           if (action.type === "status") return yield* say(sessionID, Workflow.describe(run))
+          if (action.type === "new") {
+            if (action.text === "")
+              return yield* say(sessionID, "Describe the workflow you want: /workflow new <what it should do>")
+            const result = yield* draft(action.text)
+            if (result.workflow === undefined)
+              return yield* say(sessionID, `The workflow could not be drafted. ${result.problems.join(" ")}`)
+            const drafted = result.workflow
+            yield* patch(sessionID, (metadata) => Workflow.writeDraft(metadata, drafted))
+            return yield* say(sessionID, WorkflowDraft.outline(drafted))
+          }
+          if (action.type === "discard") {
+            if (Workflow.draft(session.metadata) === undefined) return yield* say(sessionID, "There is no drafted workflow.")
+            yield* patch(sessionID, (metadata) => Workflow.clearDraft(metadata))
+            return yield* say(sessionID, "Draft discarded.")
+          }
+          if (action.type === "save") {
+            const drafted = Workflow.draft(session.metadata)
+            if (drafted === undefined)
+              return yield* say(sessionID, "There is no drafted workflow. Describe one with /workflow new <what it should do>.")
+            // The id was free when the draft was made; make sure it still is.
+            const named = { ...drafted, id: WorkflowDraft.unique(drafted.id, new Set(definitions.map((item) => item.id))) }
+            const problems = yield* deps.save(action.scope, named)
+            if (problems.length > 0) return yield* say(sessionID, `It could not be saved: ${problems.join(" ")}`)
+            yield* patch(sessionID, (metadata) => Workflow.clearDraft(metadata))
+            return yield* say(
+              sessionID,
+              `Saved "${named.name}" for ${action.scope === "project" ? "this project" : "every project"}. Change it in Settings, Workflows, or start it with /workflow ${named.id} <task>.`,
+            )
+          }
           if (action.type === "stop") {
             if (run === undefined) return yield* say(sessionID, "No workflow to stop.")
             if (run.child !== null) yield* ctx.session.interrupt({ sessionID: Session.ID.make(run.child) }).pipe(Effect.ignore)
@@ -421,6 +484,14 @@ export const install = Effect.fnUntraced(function* (ctx: Context, deps: Deps) {
   yield* ctx.rpc
     .register(Definition, {
       list: () => deps.load.pipe(Effect.map((workflows) => ({ workflows }))),
+      describe: (input) =>
+        draft(input.text).pipe(
+          Effect.map((result) =>
+            result.workflow === undefined
+              ? { problems: result.problems }
+              : { workflow: result.workflow, problems: result.problems },
+          ),
+        ),
       save: (input) => deps.save(input.scope, input.workflow).pipe(Effect.map((problems) => ({ problems }))),
       remove: (input) => deps.remove(input.scope, input.id).pipe(Effect.map((removed) => ({ removed }))),
     })

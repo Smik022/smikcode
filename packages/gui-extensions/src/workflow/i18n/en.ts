@@ -9,6 +9,15 @@ export default {
   loading: "Loading workflows…",
   unavailable: "Workflows need a server that supports them. Update or restart the SmikCode server.",
   retry: "Try again",
+  "describe.title": "Describe a workflow",
+  "describe.placeholder":
+    "For example: write a short spec I approve, then tests, then the change, then a fresh review before any pull request",
+  "describe.hint":
+    "A model drafts the stages from your description. You check the draft in the editor, and nothing is saved until you save it.",
+  "describe.draft": "Draft it",
+  "describe.drafting": "Drafting…",
+  "describe.failed": "The draft could not be made. Check that a model is set up and working, then try again.",
+  "drafted.note": "Drafted from your description. Check the stages, change what you like, then save.",
   empty: "No workflows yet.",
   "source.builtin": "Prebuilt",
   "source.global": "All projects",

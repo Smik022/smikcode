@@ -242,4 +242,12 @@ describe("workflow text", () => {
     })
     expect(Workflow.parse("sdd")).toEqual({ type: "start", name: "sdd", task: "" })
   })
+
+  test("parses the commands that make a workflow", () => {
+    expect(Workflow.parse("new tests first, then a review")).toEqual({ type: "new", text: "tests first, then a review" })
+    expect(Workflow.parse("draft")).toEqual({ type: "new", text: "" })
+    expect(Workflow.parse("save")).toEqual({ type: "save", scope: "global" })
+    expect(Workflow.parse("SAVE Project")).toEqual({ type: "save", scope: "project" })
+    expect(Workflow.parse("discard")).toEqual({ type: "discard" })
+  })
 })

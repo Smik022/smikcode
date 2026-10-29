@@ -61,7 +61,15 @@ const reviewed = stages(
 )
 
 /** Runs the workflow engine against a stubbed host that keeps sessions in memory. */
-const run = Effect.fnUntraced(function* (options: { workflow?: WorkflowPlugin.Loaded; passing?: () => boolean; noAgent?: boolean } = {}) {
+const run = Effect.fnUntraced(function* (
+  options: {
+    workflow?: WorkflowPlugin.Loaded
+    passing?: () => boolean
+    noAgent?: boolean
+    /** What the model answers to each request for a draft, in turn. "fail" makes the request fail. */
+    replies?: ReadonlyArray<string>
+  } = {},
+) {
   const workflow = options.workflow ?? reviewed
   const sessions = new Map<Session.ID, FakeSession>([
     [main, { id: main, metadata: undefined, parentID: undefined, agent: options.noAgent ? undefined : "build", model: { providerID: "p", id: "m" } }],
@@ -72,6 +80,8 @@ const run = Effect.fnUntraced(function* (options: { workflow?: WorkflowPlugin.Lo
     switched: new Array<string>(),
     interrupted: new Array<Session.ID>(),
     created: new Array<FakeSession>(),
+    asked: new Array<string>(),
+    saved: new Array<{ scope: string; workflow: Workflow.Definition }>(),
   }
   const events = yield* Queue.unbounded<Ended>()
   let command: CommandDefinition | undefined
@@ -79,7 +89,12 @@ const run = Effect.fnUntraced(function* (options: { workflow?: WorkflowPlugin.Lo
   let context: ((input: SessionContext) => Effect.Effect<void>) | undefined
   let promptHook: ((input: SessionPrompt) => Effect.Effect<void>) | undefined
   let evaluate: ((input: PermissionEvaluation) => Effect.Effect<void>) | undefined
-  let rpc: { list: () => Effect.Effect<{ workflows: ReadonlyArray<unknown> }> } | undefined
+  let rpc:
+    | {
+        list: () => Effect.Effect<{ workflows: ReadonlyArray<unknown> }>
+        describe: (input: { text: string }) => Effect.Effect<{ workflow?: Workflow.Definition; problems: ReadonlyArray<string> }>
+      }
+    | undefined
 
   const get = (id: Session.ID) => {
     const found = sessions.get(id)
@@ -145,6 +160,14 @@ const run = Effect.fnUntraced(function* (options: { workflow?: WorkflowPlugin.Lo
         },
         // oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion
       ) as never,
+      generate: {
+        text: (input) =>
+          Effect.suspend(() => {
+            const reply = options.replies?.[log.asked.length]
+            log.asked.push(input.prompt)
+            return reply === undefined || reply === "fail" ? Effect.die("model unavailable") : Effect.succeed({ text: reply })
+          }),
+      },
       session: {
         get: (input) => get(input.sessionID),
         update: (input) =>
@@ -211,8 +234,12 @@ const run = Effect.fnUntraced(function* (options: { workflow?: WorkflowPlugin.Lo
         const passed = options.passing?.() ?? true
         return Effect.succeed({ passed, output: passed ? "ok" : "2 failed" })
       },
-      // Saving and removing files is checked against a real backend, in the live script.
-      save: () => Effect.die("unused"),
+      // Writing files is checked against a real backend, in the live script; here a save is only recorded.
+      save: (scope, saved) =>
+        Effect.sync(() => {
+          log.saved.push({ scope, workflow: saved })
+          return Workflow.problems(saved)
+        }),
       remove: () => Effect.die("unused"),
     },
   )
@@ -587,4 +614,93 @@ describe("workflow plugin", () => {
       expect(listed.workflows).toEqual([reviewed])
     }),
   )
+  const drafted = JSON.stringify({
+    id: "quick",
+    name: "Quick",
+    stages: [
+      { id: "plan", title: "Plan", instructions: "Plan it." },
+      { id: "build", title: "Build", instructions: "Build it.", exit: "command", command: "bun test" },
+    ],
+  })
+
+  it.effect("drafts a workflow from a description, keeps it in the session and does not save it", () =>
+    Effect.gen(function* () {
+      const { say, log, state } = yield* run({ replies: [drafted] })
+      yield* say("new plan then build with tests")
+      expect(log.asked).toHaveLength(1)
+      expect(log.asked[0]).toContain("plan then build with tests")
+      expect(log.asked[0]).toContain("demo")
+      expect(Workflow.draft(state()?.metadata)?.name).toBe("Quick")
+      expect(log.notes.at(-1)?.text).toContain('Drafted "Quick"')
+      expect(log.notes.at(-1)?.text).toContain("2. Build (must pass `bun test`)")
+      expect(log.saved).toEqual([])
+    }),
+  )
+
+  it.effect("asks the model again with what was wrong, and gives up after three replies it cannot use", () =>
+    Effect.gen(function* () {
+      const broken = JSON.stringify({ id: "x", name: "X", stages: [{ id: "a", title: "A", instructions: "x", onPass: "nowhere" }] })
+      const fixed = yield* run({ replies: [broken, drafted] })
+      yield* fixed.say("new something")
+      expect(fixed.log.asked).toHaveLength(2)
+      expect(fixed.log.asked[1]).toContain('goes on to "nowhere"')
+      expect(Workflow.draft(fixed.state()?.metadata)?.id).toBe("quick")
+
+      const hopeless = yield* run({ replies: [broken, broken, broken, drafted] })
+      yield* hopeless.say("new something")
+      expect(hopeless.log.asked).toHaveLength(3)
+      expect(Workflow.draft(hopeless.state()?.metadata)).toBeUndefined()
+      expect(hopeless.log.notes.at(-1)?.text).toContain("could not be drafted")
+    }),
+  )
+
+  it.effect("says so when the model does not answer, and when there is no description", () =>
+    Effect.gen(function* () {
+      const { say, log, state } = yield* run({ replies: ["fail"] })
+      yield* say("new something")
+      expect(log.notes.at(-1)?.text).toContain("The model did not answer")
+      expect(Workflow.draft(state()?.metadata)).toBeUndefined()
+      yield* say("new")
+      expect(log.notes.at(-1)?.text).toContain("Describe the workflow you want")
+      expect(log.asked).toHaveLength(1)
+    }),
+  )
+
+  it.effect("saves the draft where it is told to, under an id that is still free, and then forgets it", () =>
+    Effect.gen(function* () {
+      const { say, log, state } = yield* run({ replies: [drafted] })
+      yield* say("save")
+      expect(log.notes.at(-1)?.text).toContain("There is no drafted workflow")
+      yield* say("new quick one")
+      // An id that was free when the draft was made can be taken by the time it is saved.
+      yield* Effect.sync(() => {
+        const metadata = state()?.metadata
+        const taken = { ...Workflow.draft(metadata), id: "demo" }
+        const session = state()
+        if (session) session.metadata = Workflow.writeDraft(metadata, taken as Workflow.Definition)
+      })
+      yield* say("save project")
+      expect(log.saved).toHaveLength(1)
+      expect(log.saved[0]?.scope).toBe("project")
+      expect(log.saved[0]?.workflow.id).toBe("demo-2")
+      expect(Workflow.draft(state()?.metadata)).toBeUndefined()
+      expect(log.notes.at(-1)?.text).toContain("this project")
+    }),
+  )
+
+  it.effect("drops a draft on request, and returns the draft over RPC without keeping it", () =>
+    Effect.gen(function* () {
+      const { say, log, state, handlers } = yield* run({ replies: [drafted, drafted] })
+      yield* say("new quick one")
+      yield* say("discard")
+      expect(Workflow.draft(state()?.metadata)).toBeUndefined()
+      expect(log.notes.at(-1)?.text).toBe("Draft discarded.")
+      const result = yield* handlers.describe({ text: "quick one" })
+      expect(result.workflow?.id).toBe("quick")
+      expect(result.problems).toEqual([])
+      expect(Workflow.draft(state()?.metadata)).toBeUndefined()
+      expect((yield* handlers.describe({ text: "  " })).problems).toEqual(["Describe the workflow you want."])
+    }),
+  )
+
 })

@@ -35,6 +35,10 @@ const decodeList = Schema.decodeUnknownOption(Schema.Struct({ workflows: Schema.
 
 const decodeSaved = Schema.decodeUnknownOption(Schema.Struct({ problems: Schema.Array(Schema.String) }))
 
+const decodeDrafted = Schema.decodeUnknownOption(
+  Schema.Struct({ workflow: Schema.optional(Workflow.Definition), problems: Schema.Array(Schema.String) }),
+)
+
 type Choice = { value: string; label: string }
 
 type Saving = { workflow: Workflow.Definition; scope: Draft["scope"] }
@@ -50,7 +54,15 @@ const VIEWS = ["cards", "flow"] as const
 export default function WorkflowPage() {
   const ctx = useExtension<typeof definition>()
   const queryClient = useQueryClient()
-  const [state, setState] = createStore<{ draft?: Draft; problems: string[] }>({ problems: [] })
+
+  const [state, setState] = createStore<{
+    draft?: Draft
+    problems: string[]
+    /** The description being typed, and why the last one gave no draft. */
+    describe: { text: string; problems: string[] }
+    /** The open draft was made from a description, so it has not been looked at yet. */
+    drafted: boolean
+  }>({ problems: [], describe: { text: "", problems: [] }, drafted: false })
 
   // The backend that holds the workflows: the routed session's, else a session's that is open, else the local one.
   const target = createMemo(() => {
@@ -61,7 +73,7 @@ export default function WorkflowPage() {
     return server ? { server, location: session?.location } : undefined
   })
 
-  const call = async (method: "list" | "save" | "remove", input: JsonValue, signal?: AbortSignal) => {
+  const call = async (method: "list" | "save" | "remove" | "describe", input: JsonValue, signal?: AbortSignal) => {
     const current = target()
 
     if (!current) throw new Error("No server")
@@ -101,9 +113,35 @@ export default function WorkflowPage() {
       if (result.problems.length > 0) return setState("problems", result.problems)
       await refresh()
       showToast({ title: ctx.t("toast.saved", { name: result.workflow.name }) })
-      setState({ draft: undefined, problems: [] })
+      setState({ draft: undefined, problems: [], drafted: false })
     },
     onError: () => showToast({ title: ctx.t("toast.failed") }),
+  }))
+
+  const describe = useMutation(() => ({
+    mutationFn: async (text: string) => {
+      const decoded = decodeDrafted(await call("describe", { text }))
+
+      if (Option.isNone(decoded)) throw new Error("Unexpected reply")
+
+      return decoded.value
+    },
+    onSuccess: (result) => {
+      // The draft opens in the editor, saved nowhere, so it can be checked and changed first.
+      if (result.workflow) {
+        setState({
+          draft: fromDefinition(result.workflow, "global", true),
+          problems: [],
+          drafted: true,
+          describe: { text: "", problems: [] },
+        })
+
+        return
+      }
+
+      setState("describe", "problems", [...result.problems])
+    },
+    onError: () => setState("describe", "problems", [ctx.t("describe.failed")]),
   }))
 
   const remove = useMutation(() => ({
@@ -115,7 +153,7 @@ export default function WorkflowPage() {
     onSuccess: async (result) => {
       await refresh()
       showToast({ title: ctx.t("toast.deleted", { name: result.name }) })
-      setState({ draft: undefined, problems: [] })
+      setState({ draft: undefined, problems: [], drafted: false })
     },
     onError: () => showToast({ title: ctx.t("toast.failed") }),
   }))
@@ -124,16 +162,26 @@ export default function WorkflowPage() {
   // Project files need a project, which is known once a session is open.
   const projectKnown = () => target()?.location !== undefined
 
-  const create = () => setState({ draft: blank("global", ctx.t("stage.default", { number: 1 })), problems: [] })
+  const create = () =>
+    setState({ draft: blank("global", ctx.t("stage.default", { number: 1 })), problems: [], drafted: false })
 
   const edit = (item: Workflow.Listed) =>
     setState({
       // A prebuilt workflow is changed by saving a copy of its own, which then takes its place.
       draft: fromDefinition(item, item.source === "builtin" ? (projectKnown() ? "project" : "global") : item.source),
       problems: [],
+      drafted: false,
     })
 
-  const close = () => setState({ draft: undefined, problems: [] })
+  const close = () => setState({ draft: undefined, problems: [], drafted: false })
+
+  const draftIt = () => {
+    const text = state.describe.text.trim()
+
+    if (text === "" || describe.isPending) return
+    setState("describe", "problems", [])
+    describe.mutate(text)
+  }
 
   return (
     <>
@@ -161,6 +209,43 @@ export default function WorkflowPage() {
         <Show
           when={state.draft}
           fallback={
+            <>
+            <section class="flex flex-col gap-2" aria-label={ctx.t("describe.title")}>
+              <Field label={ctx.t("describe.title")} hint={ctx.t("describe.hint")}>
+                <Textarea
+                  data-action="settings-workflow-describe"
+                  aria-label={ctx.t("describe.title")}
+                  class="!w-full"
+                  rows={3}
+                  value={state.describe.text}
+                  placeholder={ctx.t("describe.placeholder")}
+                  disabled={describe.isPending}
+                  onInput={(event) => setState("describe", "text", event.currentTarget.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) draftIt()
+                  }}
+                />
+              </Field>
+              <div class="flex items-start gap-3">
+                <Button
+                  data-action="settings-workflow-draft"
+                  size="normal"
+                  variant="contrast"
+                  class="shrink-0 whitespace-nowrap"
+                  disabled={describe.isPending || state.describe.text.trim() === "" || !target()}
+                  onClick={draftIt}
+                >
+                  {describe.isPending ? ctx.t("describe.drafting") : ctx.t("describe.draft")}
+                </Button>
+                <Show when={state.describe.problems.length > 0}>
+                  <div class="flex flex-col gap-1 pt-1" role="alert">
+                    <For each={state.describe.problems}>
+                      {(problem) => <p class="text-13-regular text-text-danger-base">{problem}</p>}
+                    </For>
+                  </div>
+                </Show>
+              </div>
+            </section>
             <section class="settings-section" aria-label={ctx.t("title")}>
               <Show
                 when={!list.isError && target()}
@@ -204,6 +289,7 @@ export default function WorkflowPage() {
                 </Show>
               </Show>
             </section>
+            </>
           }
         >
           {(draft) => (
@@ -211,6 +297,7 @@ export default function WorkflowPage() {
               draft={draft()}
               projectKnown={projectKnown()}
               problems={state.problems}
+              drafted={state.drafted}
               saving={save.isPending || remove.isPending}
               source={list.data?.find((item) => item.id === draft().id)?.source}
               change={(next) => setState("draft", reconcile(next, { key: "id" }))}
@@ -232,6 +319,8 @@ export default function WorkflowPage() {
 
 function Editor(props: {
   draft: Draft
+  /** The draft came from a description. */
+  drafted: boolean
   projectKnown: boolean
   problems: readonly string[]
   saving: boolean
@@ -274,6 +363,15 @@ function Editor(props: {
           {ctx.t("back")}
         </Button>
       </div>
+
+      <Show when={props.drafted}>
+        <p
+          data-component="workflow-drafted"
+          class="rounded-xl bg-v2-background-bg-base px-3 py-2 text-13-regular text-v2-text-text-muted shadow-[inset_0_0_0_0.5px_var(--v2-border-border-base)]"
+        >
+          {ctx.t("drafted.note")}
+        </p>
+      </Show>
 
       <section class="flex flex-col gap-3">
         <Field label={ctx.t("field.name")}>

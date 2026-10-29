@@ -8,6 +8,9 @@ export const KEY = "workflow"
 /** Session metadata key holding a workflow picked in the prompt box, which the next message starts. */
 export const PENDING = "workflow_pending"
 
+/** Session metadata key holding a workflow drafted from a description, until the user saves or discards it. */
+export const DRAFT = "workflow_draft"
+
 /** A target for `onPass` that ends the workflow instead of naming a stage. */
 export const DONE = "done"
 
@@ -103,6 +106,12 @@ export const read = (metadata: Readonly<Record<string, unknown>> | undefined) =>
 export const pending = (metadata: Readonly<Record<string, unknown>> | undefined) =>
   Option.getOrUndefined(decodeText(metadata?.[PENDING]))
 
+const decodeDefinition = Schema.decodeUnknownOption(Definition)
+
+/** The workflow drafted from a description in this session, if there is one. */
+export const draft = (metadata: Readonly<Record<string, unknown>> | undefined) =>
+  Option.getOrUndefined(decodeDefinition(metadata?.[DRAFT]))
+
 /** A run whose stage the agent can report on. */
 export const isOpen = (run: Run | undefined) => run?.status === "running" || run?.status === "waiting"
 
@@ -116,6 +125,9 @@ export const writePending = <T>(metadata: Metadata<T>, id: string | undefined) =
 
 /** The metadata without a finished or abandoned run. */
 export const clear = <T>(metadata: Metadata<T>) => put(metadata, KEY, undefined)
+
+/** The metadata without a drafted workflow. */
+export const clearDraft = <T>(metadata: Metadata<T>) => put(metadata, DRAFT, undefined)
 
 /** What is wrong with a workflow definition, in words the author can act on. Empty when it is usable. */
 export function problems(definition: Definition) {

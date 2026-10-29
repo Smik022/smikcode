@@ -8,6 +8,7 @@ import { Option, Schema } from "effect"
 export const KEY = Stored.KEY
 export const PENDING = Stored.PENDING
 export const DONE = Stored.DONE
+export const DRAFT = Stored.DRAFT
 export const DEFAULT_RETRIES = Stored.DEFAULT_RETRIES
 export const Stage = Stored.Stage
 export type Stage = Stored.Stage
@@ -23,6 +24,8 @@ export const Run = Stored.Run
 export type Run = Stored.Run
 export const read = Stored.read
 export const pending = Stored.pending
+export const draft = Stored.draft
+export const clearDraft = Stored.clearDraft
 export const isOpen = Stored.isOpen
 export const writePending = Stored.writePending
 export const problems = Stored.problems
@@ -66,6 +69,9 @@ const json = (value: unknown): SessionMetadata[string] => JSON.parse(JSON.string
 
 export const write = (metadata: SessionMetadata | undefined, run: Run | undefined) =>
   put(metadata, KEY, run === undefined ? undefined : json(run))
+
+export const writeDraft = (metadata: SessionMetadata | undefined, definition: Definition) =>
+  put(metadata, DRAFT, json(definition))
 
 export const writeChild = (metadata: SessionMetadata | undefined, child: Child | undefined) =>
   put(metadata, CHILD, child === undefined ? undefined : json(child))
@@ -249,6 +255,9 @@ export type Action =
   | { readonly type: "stop" }
   | { readonly type: "resume" }
   | { readonly type: "approve" }
+  | { readonly type: "new"; readonly text: string }
+  | { readonly type: "save"; readonly scope: "global" | "project" }
+  | { readonly type: "discard" }
   | { readonly type: "start"; readonly name: string; readonly task: string }
 
 export function parse(input: string): Action {
@@ -260,5 +269,8 @@ export function parse(input: string): Action {
   if (word === "stop" || word === "cancel") return { type: "stop" }
   if (word === "resume" || word === "retry") return { type: "resume" }
   if (word === "approve" || word === "next") return { type: "approve" }
+  if (word === "new" || word === "draft" || word === "create") return { type: "new", text: (match[2] ?? "").trim() }
+  if (word === "save") return { type: "save", scope: (match[2] ?? "").trim().toLowerCase() === "project" ? "project" : "global" }
+  if (word === "discard") return { type: "discard" }
   return { type: "start", name: word, task: (match[2] ?? "").trim() }
 }

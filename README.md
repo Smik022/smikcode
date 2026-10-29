@@ -150,7 +150,7 @@ SmikCode reads `AGENTS.md` as its project instructions. Where a directory has no
 
 SmikCode can start **your own, already signed-in Claude Code** with SmikCode's tools attached over MCP. Claude Code's model does the work, under your Claude plan. SmikCode's own chat and agent keep using whichever models you have connected in SmikCode.
 
-- **Desktop:** in the terminal panel, click the button that opens Claude Code with SmikCode's tools. It opens a terminal tab running `claude` with every SmikCode tool available.
+- **Desktop:** in a session, type `/claude` in the prompt box, pick "Open Claude Code with SmikCode's tools" from the command palette, or click the `</>` button next to `+` in the terminal panel. Each opens a terminal tab running `claude` with SmikCode's tools attached. In Settings, General, the **Claude Code** section chooses which tools it gets (read only, read and edit files, or everything including commands; the default is everything).
 - **Terminal:** `smikcode claude` runs `claude` in the current folder, pre-wired. Add `--tools safe|edits|all` and put Claude's own arguments after `--`, for example `smikcode claude -- --model opus`.
 - **Permanently, from Claude Code:** `claude mcp add --scope user smikcode -- smikcode mcp serve --tools safe`
 

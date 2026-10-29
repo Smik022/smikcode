@@ -311,12 +311,12 @@ function createWorkspace(input: { storage: Storage; server: ServerRef; directory
     },
     // Starts the user's own Claude Code in a new tab, with SmikCode's tools attached to it over MCP. The backend says
     // what to run; sign-in stays with Claude Code, so nothing here touches its credentials.
-    async claude() {
+    async claude(tools: "safe" | "edits" | "all") {
       const response = await input.server.client.rpc.call({
         rpcID: "smikcode.bridge",
         method: "launch",
         location,
-        input: { tools: "all" },
+        input: { tools },
       })
 
       const launch: { command: string; args: string[] } = response.output

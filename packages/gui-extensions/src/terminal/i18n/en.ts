@@ -5,6 +5,13 @@ export default {
   "command.new.description": "Create a new terminal tab",
   "command.claude": "Open Claude Code with SmikCode's tools",
   "claude.failed": "Couldn't start Claude Code. Is it installed?",
+  "settings.title": "Claude Code",
+  "settings.tools.title": "Tools for Claude Code",
+  "settings.tools.description":
+    "What your own Claude Code may use through SmikCode. Start it from the terminal panel, the command palette, or by typing /claude in the prompt box.",
+  "settings.tools.safe": "Read only",
+  "settings.tools.edits": "Read and edit files",
+  "settings.tools.all": "Everything, including commands",
   loading: "Loading terminal…",
   "title.numbered": "Terminal {{number}}",
   close: "Close terminal",

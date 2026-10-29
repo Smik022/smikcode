@@ -1,5 +1,6 @@
 import { createMemo, lazy, on, onCleanup, Suspense } from "solid-js"
-import { Command, createKeyed, onIdle, Panel, type Setup } from "../sdk"
+import { showToast } from "@opencode/ui/toast"
+import { Command, createKeyed, onIdle, Panel, SettingsPage, type Setup } from "../sdk"
 import type Terminal from "./index"
 import { createTerminalModel, type TerminalWorkspace } from "./model"
 
@@ -122,6 +123,48 @@ const setup: Setup<typeof Terminal> = (ctx) => {
       },
     }),
   )
+
+  ctx.add(
+    Command,
+    (): Command => ({
+      id: "claude",
+      title: ctx.t("command.claude"),
+      group: ctx.t("command.category"),
+      section: "terminal",
+      slash: { name: "claude" },
+      enabled: routed(),
+      run() {
+        const target = current()
+
+        if (!target) return
+
+        layout.open(DOCK, target.session)
+        target.terminal
+          .claude(ctx.stores.claude.value.tools)
+          .catch(() => showToast({ title: ctx.t("claude.failed") }))
+      },
+    }),
+  )
+
+  const Section = lazy(() => import("./settings"))
+  // Settings rows are small; load them while idle so settings opens without a blank row.
+  onCleanup(onIdle(() => void Section.preload()))
+
+  ctx.add(SettingsPage, {
+    id: "claude",
+    page: "general",
+    get title() {
+      return ctx.t("settings.title")
+    },
+    get entries() {
+      return [{ id: "settings-claude-tools", title: ctx.t("settings.tools.title"), keywords: "claude mcp" }]
+    },
+    render: () => (
+      <Suspense>
+        <Section />
+      </Suspense>
+    ),
+  })
 
   const TerminalPanel = lazy(() => import("./panel"))
 

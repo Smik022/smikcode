@@ -19,6 +19,7 @@ import { Terminal } from "./terminal"
 import { terminalTabLabel } from "./title"
 import { showToast } from "@opencode/ui/toast"
 import { focusTerminalById } from "./focus"
+import type definition from "./index"
 
 const MAX_CACHED_TERMINAL_WORKSPACES = 20
 
@@ -37,7 +38,7 @@ type TerminalPanelState = {
 }
 
 export default function TerminalPanel(props: { model: TerminalModel; session: MountedSession; onClose: () => void }) {
-  const extension = useExtension()
+  const extension = useExtension<typeof definition>()
   const keybinds = extension.keybinds
   const frame = usePanel()
   const terminal = createMemo(() => props.model.load(props.session))
@@ -316,7 +317,7 @@ export default function TerminalPanel(props: { model: TerminalModel; session: Mo
                       variant="ghost"
                       onClick={() =>
                         terminal()
-                          .claude()
+                          .claude(extension.stores.claude.value.tools)
                           .catch(() => showToast({ title: extension.t("claude.failed") }))
                       }
                       aria-label={extension.t("command.claude")}

@@ -1,8 +1,15 @@
-import { Extension } from "../sdk"
+import { Schema } from "effect"
+import { Extension, Store } from "../sdk"
 import en from "./i18n/en"
+
+// Which of SmikCode's tools the user's own Claude Code may use, the same tiers as `smikcode mcp serve --tools`.
+const Claude = Schema.Struct({ tools: Schema.Literals(["safe", "edits", "all"]) })
 
 export default Extension.define({
   id: "terminal",
+  stores: {
+    claude: Store.global(Claude, { tools: "all" }, "claude.v1"),
+  },
   i18n: {
     en,
     am: () => import("./i18n/am"),

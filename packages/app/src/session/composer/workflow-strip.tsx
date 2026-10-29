@@ -34,7 +34,9 @@ export function WorkflowStrip(props: { session: SessionModel }) {
   }
 
   // A workflow drafted from a description waits to be saved or dropped. A run in progress takes the strip first.
-  const drafted = createMemo(() => (run() === undefined ? Workflow.draft(props.session.data.info()?.metadata) : undefined))
+  const drafted = createMemo(() =>
+    run() === undefined || run()?.status === "done" ? Workflow.draft(props.session.data.info()?.metadata) : undefined,
+  )
 
   return (
     <>

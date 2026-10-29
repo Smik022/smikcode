@@ -3,6 +3,7 @@ import type { SessionInfo } from "@opencode/client/promise"
 import { useGlobal, useServerCtx } from "@/runtime/server/runtime"
 import { sessionPermissionRequest, sessionFormRequest } from "@/session/requests/session-request-tree"
 import { ServerConnection } from "@/runtime/server/registry"
+import { Workflow } from "@opencode/schema/workflow"
 import { projectSettingsKey, useSettings } from "@/settings/model"
 
 export function useSessionTabAvatarState(
@@ -38,9 +39,11 @@ export function useSessionTabAvatarState(
 
     const project = projectSettingsKey(ctx.sdk.scope, ctx.data.session.get(sessionId())?.projectID)
 
-    if (settings.permissions.autoApproves(project)) return false
+    const forced = settings.permissions.autoApproves(project)
+      ? (item: { message?: string }) => item.message === Workflow.OUTWARD
+      : undefined
 
-    return !!sessionPermissionRequest(sessions(), ctx.data.session.permission.list, sessionId())
+    return !!sessionPermissionRequest(sessions(), ctx.data.session.permission.list, sessionId(), forced)
   })
 
   const hasForms = createMemo(() => {

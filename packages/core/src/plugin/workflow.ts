@@ -31,7 +31,22 @@ const OUTPUT_SHOWN = 4_000
 const DEFAULT_AGENT = "build"
 
 // Pushing and publishing leave the machine, so inside a workflow they always ask, whatever the permission mode says.
-const OUTWARD = [/\bgit\b[^|;&]*\bpush\b/u, /\bgh\s+pr\s+(?:create|merge)\b/u, /\bgh\s+release\s+create\b/u]
+// This reads the command as written, so it is a guard rail and not a sandbox: quoting tricks get past it.
+const OUTWARD = [
+  /\bgit\b[^|;&\n]*\bpush\b/iu,
+  /\bgit\b[^|;&\n]*\bsend-pack\b/iu,
+  /\bgh\b[^|;&\n]*\bpr\s+(?:create|merge)\b/iu,
+  /\bgh\b[^|;&\n]*\brelease\s+create\b/iu,
+  /\bnpm\s+publish\b/iu,
+  /\b(?:docker|podman)\s+push\b/iu,
+]
+
+// A reported summary goes into metadata and the next prompt, so it is kept to a size that fits.
+const SUMMARY_LIMIT = 4_000
+
+// What a stage's session is told when the server restarted under it.
+const RESTARTED =
+  "The server restarted while this stage was running. Carry on with the stage where you left off, and when it is finished report it with the workflow_stage tool."
 
 const Input = Schema.Struct({
   outcome: Workflow.Outcome,
@@ -112,7 +127,8 @@ export const Plugin = define({
         fs.readFileStringSafe(path.join(folder, entry.name)).pipe(
           Effect.orElseSucceed(() => undefined),
           Effect.map((text) => {
-            const parsed = text === undefined ? undefined : decodeFile(text)
+            // Notepad and Windows PowerShell write a byte order mark, which JSON does not allow.
+            const parsed = text === undefined ? undefined : decodeFile(text.replace(/^﻿/u, ""))
             if (parsed === undefined || parsed._tag === "None" || Workflow.problems(parsed.value).length > 0) return []
             return [{ file: path.join(folder, entry.name), workflow: { ...parsed.value, source } }]
           }),
@@ -146,7 +162,8 @@ export const Plugin = define({
     })
 
     const check = Effect.fnUntraced(function* (command: string) {
-      const shell = yield* selector.resolve({ priority: "config" })
+      // The same shell the agent's own commands use, so a check behaves like the command the agent ran.
+      const shell = yield* selector.resolve({ priority: "compat" })
       return yield* processes
         .run(
           ChildProcess.make(shell, ShellSelect.args(shell, command), {
@@ -233,6 +250,9 @@ export const install = Effect.fnUntraced(function* (ctx: Context, deps: Deps) {
     yield* say(sessionID, `Workflow paused. ${note} Use /workflow resume to continue.`)
   })
 
+  // Sessions whose stage check is running.
+  const checking = new Set<string>()
+
   type Send = (text: string) => Effect.Effect<unknown, unknown>
 
   // Starts the run's current stage: in this chat, or in a session of its own for a fresh stage.
@@ -248,13 +268,15 @@ export const install = Effect.fnUntraced(function* (ctx: Context, deps: Deps) {
     }
     const index = run.workflow.stages.findIndex((item) => item.id === stage.id)
     const session = yield* ctx.session.get({ sessionID })
-    // The first stage has no earlier work to be fresh from, so it always runs in this chat.
-    if (stage.context === "fresh" && index > 0) {
+    // The first stage has no earlier work to be fresh from, so it starts in this chat. Coming back to it later, after
+    // other stages have run, it is fresh like any other.
+    if (stage.context === "fresh" && (index > 0 || run.reports.length > 0)) {
       const override = stage.model === undefined ? undefined : Model.Ref.parse(stage.model)
       const child = yield* ctx.session.create({
         parentID: sessionID,
         title: `${run.workflow.name}: ${stage.title}`,
-        agent: Agent.ID.make(stage.agent ?? session.agent ?? DEFAULT_AGENT),
+        // The agent the run started with, not the one an earlier stage switched the chat to.
+        agent: Agent.ID.make(stage.agent ?? run.origin ?? DEFAULT_AGENT),
         model: override ?? session.model,
         // A fresh session inherits the parent's metadata unless told otherwise; it must not inherit the run itself.
         metadata: Workflow.writeChild(
@@ -305,7 +327,13 @@ export const install = Effect.fnUntraced(function* (ctx: Context, deps: Deps) {
       )
     }
     if (stage.exit === "command" && stage.command !== undefined) {
-      const result = yield* deps.check(stage.command)
+      // A second end event for this stage, such as a message sent while the check runs, must not run it again.
+      if (checking.has(sessionID)) return
+      checking.add(sessionID)
+      const result = yield* deps.check(stage.command).pipe(Effect.ensuring(Effect.sync(() => checking.delete(sessionID))))
+      // The run may have been stopped, or have moved on, while the check ran.
+      const latest = Workflow.read((yield* ctx.session.get({ sessionID })).metadata)
+      if (latest === undefined || latest.stage !== run.stage || latest.status !== "running") return
       if (!result.passed)
         return yield* proceed(
           sessionID,
@@ -327,7 +355,7 @@ export const install = Effect.fnUntraced(function* (ctx: Context, deps: Deps) {
           Effect.gen(function* () {
             const session = yield* ctx.session.get({ sessionID: context.sessionID }).pipe(Effect.mapError(failed))
             const child = Workflow.readChild(session.metadata)
-            const report = { outcome: input.outcome, summary: input.summary }
+            const report = { outcome: input.outcome, summary: input.summary.slice(0, SUMMARY_LIMIT) }
             const run = Workflow.read(session.metadata)
             if (child === undefined && !Workflow.isOpen(run))
               return yield* new ToolFailure({ message: "No workflow stage is active." })
@@ -382,9 +410,12 @@ export const install = Effect.fnUntraced(function* (ctx: Context, deps: Deps) {
       if (event.action !== "shell" || event.effect !== "allow") return
       if (!event.resources.some((resource) => OUTWARD.some((pattern) => pattern.test(resource)))) return
       const session = yield* ctx.session.get({ sessionID: event.sessionID })
-      if (Workflow.readChild(session.metadata) === undefined && !Workflow.isOpen(Workflow.read(session.metadata))) return
+      const run = Workflow.read(session.metadata)
+      // The rule holds while a run waits, is paused or is blocked too, so stopping the agent does not open the door.
+      if (Workflow.readChild(session.metadata) === undefined && (run === undefined || run.status === "done")) return
       event.effect = "ask"
-      event.message = "A workflow is running, so pushing and opening pull requests always need your approval."
+      // Clients read this message to know they must not answer the prompt for the user.
+      event.message = Workflow.OUTWARD
     }).pipe(Effect.catchCause(() => Effect.void)),
   )
 
@@ -436,14 +467,20 @@ export const install = Effect.fnUntraced(function* (ctx: Context, deps: Deps) {
           }
           if (action.type === "stop") {
             if (run === undefined) return yield* say(sessionID, "No workflow to stop.")
-            if (run.child !== null) yield* ctx.session.interrupt({ sessionID: Session.ID.make(run.child) }).pipe(Effect.ignore)
+            // The run goes first, so whatever the interrupts set off finds nothing to pause or continue.
             yield* save(sessionID, undefined)
+            if (run.child !== null) yield* ctx.session.interrupt({ sessionID: Session.ID.make(run.child) }).pipe(Effect.ignore)
+            // The agent working on a stage in this chat stops too, as the user would expect from Stop.
+            else if (run.status === "running") yield* ctx.session.interrupt({ sessionID }).pipe(Effect.ignore)
             yield* restoreAgent(sessionID, run).pipe(Effect.catchCause(() => Effect.void))
             return yield* say(sessionID, "Workflow stopped.")
           }
           if (action.type === "resume") {
-            if (run === undefined || (run.status !== "paused" && run.status !== "blocked"))
-              return yield* say(sessionID, "No paused workflow to resume.")
+            // A run that is still "running" but has stopped moving, for example after the server restarted, can be
+            // started again too: its stage begins afresh.
+            if (run === undefined || run.status === "waiting" || run.status === "done")
+              return yield* say(sessionID, "No paused or stalled workflow to resume.")
+            if (run.child !== null) yield* ctx.session.interrupt({ sessionID: Session.ID.make(run.child) }).pipe(Effect.ignore)
             const retries = { ...run.retries, [run.stage]: 0 }
             const again: Workflow.Run = {
               ...run,
@@ -527,6 +564,33 @@ export const install = Effect.fnUntraced(function* (ctx: Context, deps: Deps) {
     else yield* patch(sessionID, (metadata) => Workflow.writeChild(metadata, { ...child, nudges: nudges + 1 }))
     yield* ctx.session.synthetic({ sessionID, text: Workflow.nudge(run), resume: true })
   })
+
+  // After a restart the server does not resume a fresh stage's session, so a run waiting on one would wait for ever. The
+  // runs of this location that wait on one are picked up again: a stage that was already reported is judged, and one that
+  // was not is asked to carry on.
+  const reconcile = Effect.gen(function* () {
+    const listed = yield* ctx.session.list({ limit: 200, parentID: null, directory: ctx.location.directory })
+    yield* Effect.forEach(
+      listed.data,
+      (session) =>
+        Effect.gen(function* () {
+          const run = Workflow.read(session.metadata)
+          if (run === undefined || run.status !== "running" || run.child === null) return
+          const childID = Session.ID.make(run.child)
+          const reported = Workflow.readChild((yield* ctx.session.get({ sessionID: childID })).metadata)?.reported
+          if (reported) return yield* settle(session.id, run, reported)
+          yield* ctx.session.prompt({ sessionID: childID, text: RESTARTED })
+        }).pipe(Effect.catchCause((cause) => Effect.logWarning("failed to pick up a workflow run", { cause }))),
+      { discard: true },
+    )
+  })
+
+  // A moment after start, so what the server itself recovers has settled first.
+  yield* Effect.sleep("3 seconds").pipe(
+    Effect.andThen(reconcile),
+    Effect.catchCause((cause) => Effect.logWarning("failed to look for workflow runs to pick up", { cause })),
+    Effect.forkScoped,
+  )
 
   yield* ctx.event.subscribe().pipe(
     Stream.filter(

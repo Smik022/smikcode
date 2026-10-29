@@ -2,6 +2,7 @@ import { createEffect, onCleanup } from "solid-js"
 import type { PermissionRequest } from "@opencode/client/promise"
 import type { Data } from "@opencode/client/solid"
 import type { ServerSDK } from "@/runtime/server/client"
+import { Workflow } from "@opencode/schema/workflow"
 import { projectSettingsKey, useSettings } from "@/settings/model"
 
 const respondedLimit = 1000
@@ -143,6 +144,9 @@ export function createPermissionAutoApprover(input: { sdk: ServerSDK; data: Data
   ) {
     // covers() guards the retry timer path: the user may disable the setting
     // between a failed reply and its scheduled retry.
+    // A workflow forces this prompt for pushes and pull requests so the user answers it, whatever the setting says.
+    if (permission.message === Workflow.OUTWARD) return
+
     if (state.disposed || !covers(projectID) || state.responded.has(permission.id)) return
     remember(permission.id)
     input.sdk.api.permission

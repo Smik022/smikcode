@@ -158,8 +158,8 @@ You can also describe a workflow in words. The **Describe a workflow** box at th
 | `/workflow <name> <task>` | Starts a workflow on a task |
 | `/workflow status` | Shows the current run and its stages |
 | `/workflow approve` | Lets a stage that is waiting for you carry on |
-| `/workflow resume` | Retries a run that paused or got blocked |
-| `/workflow stop` | Ends the run |
+| `/workflow resume` | Starts the current stage again for a run that paused, got blocked, or stopped moving (for example after the server restarted) |
+| `/workflow stop` | Ends the run and stops the agent working on its stage |
 | `/workflow new <description>` | Drafts a workflow from a description |
 | `/workflow save` / `/workflow save project` | Keeps the draft for every project, or for this project |
 | `/workflow discard` | Drops the draft |
@@ -215,7 +215,7 @@ The editor writes plain JSON files, so you can also write or share them by hand:
 
 A `command` stage runs a shell command on your machine, so treat a project's `.smikcode/workflows/` like the scripts in its `package.json`: read a workflow that came from someone else before you pick it. Settings shows where each workflow comes from.
 
-The run keeps a copy of the workflow it started with, so editing a file never changes a run in progress. If the agent ends its replies without reporting a stage, it is reminded up to 4 times before the run pauses. A workflow never pushes or opens a pull request on its own: while one runs, `git push`, `gh pr create` and `gh pr merge` always ask you first, even in Auto mode.
+The run keeps a copy of the workflow it started with, so editing a file never changes a run in progress. If the agent ends its replies without reporting a stage, it is reminded up to 4 times before the run pauses. A workflow never pushes or opens a pull request on its own: while one runs, waits, is paused or is blocked, `git push`, `gh pr create`, `gh pr merge`, `gh release create`, `npm publish` and `docker push` always ask you first, even in Auto mode and with auto-approve on. This reads the command as written, so it is a guard rail and not a sandbox. A workflow cannot be called `list`, `new`, `save`, `done` or another word `/workflow` reads as a command, no stage can be called `done`, a stage's model must be written `provider/model`, and a workflow whose passes would go round in a loop forever is refused. A fresh stage that was running when the server restarted is picked up again when the project is opened.
 
 ### CLAUDE.md support
 

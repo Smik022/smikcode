@@ -59,7 +59,7 @@ describe("workflow routing", () => {
   test("a failure at the limit stops the run instead of looping forever", () => {
     const step = Workflow.route(at("review", { retries: { review: 2 } }), "fail", "again")
     expect(step).toMatchObject({ type: "blocked", run: { status: "blocked" } })
-    expect(step.run.note).toContain("failed 2 times")
+    expect(step.run.note).toContain("failed 3 times")
   })
 
   test("a stage without onFail tries itself again, up to the default limit", () => {
@@ -250,4 +250,23 @@ describe("workflow text", () => {
     expect(Workflow.parse("SAVE Project")).toEqual({ type: "save", scope: "project" })
     expect(Workflow.parse("discard")).toEqual({ type: "discard" })
   })
+  test("refuses ids that would be read as something else, and passes that never end", () => {
+    const stage = (id: string, extra: Partial<Workflow.Stage> = {}): Workflow.Stage => ({ id, title: id, instructions: "x", ...extra })
+    const make = (id: string, ...list: Workflow.Stage[]): Workflow.Definition => ({ id, name: id, stages: list })
+
+    expect(Workflow.problems(make("save", stage("a")))).toEqual(['"save" is a command word, so a workflow cannot be called that.'])
+    expect(Workflow.problems(make("ok", stage("build"), stage("done")))).toEqual([
+      'A stage cannot be called "done", because that word ends the workflow.',
+    ])
+    expect(Workflow.problems(make("ok", stage("a", { onPass: "a" })))).toHaveLength(1)
+    expect(Workflow.problems(make("ok", stage("a"), stage("b", { onPass: "a" })))[0]).toContain("goes round in a loop (a > b)")
+    // A loop that waits for the user can be ended by the user, and a loop through failures is the point of a review.
+    expect(Workflow.problems(make("ok", stage("a"), stage("b", { onPass: "a", exit: "approval" })))).toEqual([])
+    expect(
+      Workflow.problems(make("ok", stage("a", { onPass: "done", onFail: { goto: "b", max: 2 } }), stage("b", { onPass: "a" }))),
+    ).toEqual([])
+    expect(Workflow.problems(make("ok", stage("a", { model: "just-a-name" })))[0]).toContain("provider/model")
+    expect(Workflow.problems(make("ok", stage("a", { model: "anthropic/claude-opus#high" })))).toEqual([])
+  })
+
 })

@@ -66,6 +66,8 @@ const run = Effect.fnUntraced(function* (
     workflow?: WorkflowPlugin.Loaded
     passing?: () => boolean
     noAgent?: boolean
+    /** How long a stage check takes, in milliseconds. */
+    checkDelay?: number
     /** What the model answers to each request for a draft, in turn. "fail" makes the request fail. */
     replies?: ReadonlyArray<string>
   } = {},
@@ -82,6 +84,7 @@ const run = Effect.fnUntraced(function* (
     created: new Array<FakeSession>(),
     asked: new Array<string>(),
     saved: new Array<{ scope: string; workflow: Workflow.Definition }>(),
+    checks: new Array<string>(),
   }
   const events = yield* Queue.unbounded<Ended>()
   let command: CommandDefinition | undefined
@@ -230,10 +233,13 @@ const run = Effect.fnUntraced(function* (
     }),
     {
       load: Effect.succeed([workflow]),
-      check: () => {
-        const passed = options.passing?.() ?? true
-        return Effect.succeed({ passed, output: passed ? "ok" : "2 failed" })
-      },
+      check: () =>
+        Effect.gen(function* () {
+          log.checks.push("run")
+          if (options.checkDelay) yield* Effect.sleep(options.checkDelay)
+          const passed = options.passing?.() ?? true
+          return { passed, output: passed ? "ok" : "2 failed" }
+        }),
       // Writing files is checked against a real backend, in the live script; here a save is only recorded.
       save: (scope, saved) =>
         Effect.sync(() => {
@@ -278,7 +284,7 @@ const run = Effect.fnUntraced(function* (
     return onPrompt(event as unknown as SessionPrompt).pipe(Effect.as(event.prompt))
   }
   const ask = (action: string, resources: string[], effect: "allow" | "ask" | "deny" = "allow", sessionID = main) => {
-    const event = { sessionID, action, resources, effect }
+    const event: { sessionID: Session.ID; action: string; resources: string[]; effect: "allow" | "ask" | "deny"; message?: string } = { sessionID, action, resources, effect }
     // oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion
     return onEvaluate(event as unknown as PermissionEvaluation).pipe(Effect.as(event))
   }
@@ -374,7 +380,7 @@ describe("workflow plugin", () => {
       yield* finish(main, "pass")
       yield* finish(log.created[2]!.id, "fail", "three")
       expect(runOf()).toMatchObject({ status: "blocked" })
-      expect(log.notes.at(-1)?.text).toContain("failed 2 times")
+      expect(log.notes.at(-1)?.text).toContain("failed 3 times")
     }),
   )
 
@@ -700,6 +706,133 @@ describe("workflow plugin", () => {
       expect(result.problems).toEqual([])
       expect(Workflow.draft(state()?.metadata)).toBeUndefined()
       expect((yield* handlers.describe({ text: "  " })).problems).toEqual(["Describe the workflow you want."])
+    }),
+  )
+
+  it.effect("stops the agent of an in-chat stage too, and the run is gone before the interrupt lands", () =>
+    Effect.gen(function* () {
+      const { say, runOf, log, state } = yield* run()
+      yield* say("demo task")
+      yield* say("stop")
+      expect(runOf()).toBeUndefined()
+      expect(log.interrupted).toEqual([main])
+      expect(state()?.agent).toBe("build")
+    }),
+  )
+
+  it.effect("starts a stalled run again: a stage in this chat is asked for again, a fresh one gets a new session", () =>
+    Effect.gen(function* () {
+      const { say, finish, runOf, log } = yield* run()
+      yield* say("demo task")
+      const before = log.prompts.length
+      yield* say("resume")
+      expect(log.notes.at(-1)?.text).not.toContain("No paused")
+      expect(runOf()).toMatchObject({ stage: "build", status: "running" })
+      expect(log.notes.some((note) => note.text.includes("Stage 1/3: Build") && note.resume === true)).toBe(true)
+      expect(log.prompts.length).toBe(before)
+
+      yield* finish(main, "pass")
+      const first = runOf()?.child
+      expect(first).toBeTruthy()
+      yield* say("resume")
+      expect(log.interrupted).toContain(first as Session.ID)
+      expect(runOf()?.child).not.toBe(first)
+      expect(log.created).toHaveLength(2)
+    }),
+  )
+
+  it.effect("has nothing to resume for a run that is waiting on the user or finished", () =>
+    Effect.gen(function* () {
+      const waiting = stages({ id: "a", title: "A", instructions: "x", exit: "approval" })
+      const { say, finish, log } = yield* run({ workflow: waiting })
+      yield* say("resume")
+      expect(log.notes.at(-1)?.text).toContain("No paused or stalled workflow")
+      yield* say("demo task")
+      yield* finish(main, "pass")
+      yield* say("resume")
+      expect(log.notes.at(-1)?.text).toContain("No paused or stalled workflow")
+    }),
+  )
+
+  it.live("runs a stage's check once when a second end event arrives during it, and drops it when stopped meanwhile", () =>
+    Effect.gen(function* () {
+      const checked = stages(
+        { id: "ship", title: "Ship", instructions: "Ship it.", exit: "command", command: "make test" },
+        { id: "after", title: "After", instructions: "Then this." },
+      )
+      const first = yield* run({ workflow: checked, checkDelay: 250 })
+      yield* first.say("demo task")
+      yield* first.report(main, "pass", "shipped")
+      // Two end events for the same stage, one after the other, while the check runs.
+      yield* Effect.all([first.end(succeeded(main)), first.end(succeeded(main))], { concurrency: "unbounded" })
+      yield* Effect.promise(() => Bun.sleep(400))
+      expect(first.log.checks).toHaveLength(1)
+      expect(first.runOf()?.stage).toBe("after")
+
+      const second = yield* run({ workflow: checked, checkDelay: 250 })
+      yield* second.say("demo task")
+      yield* second.report(main, "pass", "shipped")
+      // The end event is handled in its own fiber, so this returns while the check is still running.
+      yield* second.end(succeeded(main))
+      yield* second.say("stop")
+      yield* Effect.promise(() => Bun.sleep(400))
+      // The check came back after the stop, so the run stays gone and no next stage was started.
+      expect(second.runOf()).toBeUndefined()
+      expect(second.log.notes.some((note) => note.text.includes("Stage 2/2"))).toBe(false)
+    }),
+  )
+
+  it.effect("keeps asking about pushes while a run is paused or blocked, and stops asking once it is done", () =>
+    Effect.gen(function* () {
+      const { say, ask, finish, runOf, end } = yield* run({ workflow: stages({ id: "a", title: "A", instructions: "x" }) })
+      yield* say("demo task")
+      yield* end(interrupted(main, "user"))
+      expect(runOf()?.status).toBe("paused")
+      expect((yield* ask("shell", ["git push"])).effect).toBe("ask")
+      expect((yield* ask("shell", ["GIT PUSH origin"])).effect).toBe("ask")
+      expect((yield* ask("shell", ["gh -R me/repo pr create"])).effect).toBe("ask")
+      expect((yield* ask("shell", ["npm publish"])).effect).toBe("ask")
+      expect((yield* ask("shell", ["git status"])).effect).toBe("allow")
+      yield* say("resume")
+      yield* finish(main, "pass")
+      expect(runOf()?.status).toBe("done")
+      expect((yield* ask("shell", ["git push"])).effect).toBe("allow")
+    }),
+  )
+
+  it.effect("marks the forced prompt with the shared message so no client answers it", () =>
+    Effect.gen(function* () {
+      const { say, ask } = yield* run()
+      yield* say("demo task")
+      expect((yield* ask("shell", ["git push"])).message).toBe(Workflow.OUTWARD)
+    }),
+  )
+
+  it.effect("a fresh stage runs on the agent the run started with, and a returning first stage is fresh too", () =>
+    Effect.gen(function* () {
+      const review = stages(
+        { id: "check", title: "Check", instructions: "Review.", context: "fresh", onPass: Workflow.DONE, onFail: { goto: "fix", max: 2 } },
+        { id: "fix", title: "Fix", instructions: "Fix.", agent: "plan", onPass: "check" },
+      )
+      const { say, finish, log, runOf } = yield* run({ workflow: review })
+      yield* say("demo task")
+      // The first stage starts in this chat.
+      expect(log.created).toHaveLength(0)
+      yield* finish(main, "fail", "problem")
+      expect(runOf()?.stage).toBe("fix")
+      yield* finish(main, "pass")
+      // Back at the first stage after others ran: a session of its own, on the run's agent, not the fix stage's.
+      expect(log.created).toHaveLength(1)
+      expect(log.created[0]?.agent).toBe("build")
+    }),
+  )
+
+  it.effect("keeps a long summary from filling the run", () =>
+    Effect.gen(function* () {
+      const { say, report, state } = yield* run()
+      yield* say("demo task")
+      yield* report(main, "pass", "x".repeat(10_000))
+      expect(Workflow.read(state()?.metadata)?.reported?.summary).toHaveLength(4_000)
     }),
   )
 

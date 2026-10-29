@@ -129,16 +129,29 @@ export const clear = <T>(metadata: Metadata<T>) => put(metadata, KEY, undefined)
 /** The metadata without a drafted workflow. */
 export const clearDraft = <T>(metadata: Metadata<T>) => put(metadata, DRAFT, undefined)
 
+/** Words that /workflow reads as commands, so a workflow cannot be called one of them. */
+export const RESERVED = ["list", "status", "stop", "cancel", "resume", "retry", "approve", "next", "new", "draft", "create", "save", "discard", DONE]
+
+/** The message of the prompt a workflow forces for pushing and publishing. Clients never answer it for the user. */
+export const OUTWARD = "A workflow is running, so pushing and opening pull requests always need your approval."
+
+const MODEL = /^[^\s/]+\/[^\s#]+(?:#\S+)?$/u
+
 /** What is wrong with a workflow definition, in words the author can act on. Empty when it is usable. */
 export function problems(definition: Definition) {
   const ids = definition.stages.map((stage) => stage.id)
   const known = new Set(ids)
   return [
+    ...(RESERVED.includes(definition.id) ? [`"${definition.id}" is a command word, so a workflow cannot be called that.`] : []),
     ...(definition.stages.length === 0 ? ["It has no stages."] : []),
     ...ids.filter((id, index) => ids.indexOf(id) !== index).map((id) => `Two stages are called "${id}".`),
+    ...(ids.includes(DONE) ? [`A stage cannot be called "${DONE}", because that word ends the workflow.`] : []),
     ...definition.stages.flatMap((stage) => [
       ...(stage.exit === "command" && !stage.command?.trim()
         ? [`Stage "${stage.id}" ends with a command but has none.`]
+        : []),
+      ...(stage.model !== undefined && !MODEL.test(stage.model)
+        ? [`Stage "${stage.id}" names the model "${stage.model}", which must be written provider/model or provider/model#variant.`]
         : []),
       ...(stage.onPass !== undefined && stage.onPass !== DONE && !known.has(stage.onPass)
         ? [`Stage "${stage.id}" goes on to "${stage.onPass}", which does not exist.`]
@@ -147,5 +160,28 @@ export function problems(definition: Definition) {
         ? [`Stage "${stage.id}" goes back to "${stage.onFail.goto}" on failure, which does not exist.`]
         : []),
     ]),
+    ...loops(definition),
   ]
+}
+
+// Following passes from the first stage must end, unless a stage in the loop waits for the user, who can end it.
+function loops(definition: Definition) {
+  const stages = definition.stages
+  const index = new Map(stages.map((stage, position) => [stage.id, position]))
+  const next = (position: number) => {
+    const stage = stages[position]
+    if (stage === undefined) return undefined
+    if (stage.onPass === undefined) return position + 1 < stages.length ? position + 1 : undefined
+    return stage.onPass === DONE ? undefined : index.get(stage.onPass)
+  }
+  const seen: number[] = []
+  let at: number | undefined = stages.length === 0 ? undefined : 0
+  while (at !== undefined && !seen.includes(at)) {
+    seen.push(at)
+    at = next(at)
+  }
+  if (at === undefined) return []
+  const cycle = seen.slice(seen.indexOf(at))
+  if (cycle.some((position) => stages[position]?.exit === "approval")) return []
+  return [`Following passes from the first stage goes round in a loop (${cycle.map((position) => stages[position]?.id).join(" > ")}) and never finishes.`]
 }

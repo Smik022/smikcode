@@ -45,7 +45,8 @@ export function slug(text: string, taken: ReadonlySet<string>, fallback: string)
 
 export function blankStage(draft: Pick<Draft, "stages">, title: string): DraftStage {
   return {
-    id: slug(title, new Set(draft.stages.map((stage) => stage.id)), "stage"),
+    // "done" ends a workflow, so no stage may be called that.
+    id: slug(title, new Set([...draft.stages.map((stage) => stage.id), Workflow.DONE]), "stage"),
     title,
     instructions: "",
     context: "same",

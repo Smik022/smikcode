@@ -127,6 +127,9 @@ export default function WorkflowPage() {
       return decoded.value
     },
     onSuccess: (result) => {
+      // A reply that comes after the user opened something else must not replace what they are editing.
+      if (state.draft) return
+
       // The draft opens in the editor, saved nowhere, so it can be checked and changed first.
       if (result.workflow) {
         setState({
@@ -158,7 +161,8 @@ export default function WorkflowPage() {
     onError: () => showToast({ title: ctx.t("toast.failed") }),
   }))
 
-  const taken = () => new Set((list.data ?? []).map((item) => item.id))
+  // Ids a new workflow must not take: those of the workflows there are, and the words /workflow reads as commands.
+  const taken = () => new Set([...(list.data ?? []).map((item) => item.id), ...Workflow.RESERVED])
   // Project files need a project, which is known once a session is open.
   const projectKnown = () => target()?.location !== undefined
 
@@ -198,6 +202,8 @@ export default function WorkflowPage() {
               variant="neutral"
               icon="plus"
               class="shrink-0 whitespace-nowrap"
+              // Until the workflows are known, a new one could be given the id of one that exists.
+              disabled={!list.data}
               onClick={create}
             >
               {ctx.t("new")}

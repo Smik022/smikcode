@@ -5,6 +5,7 @@ import { useParams } from "@solidjs/router"
 import { showToast } from "@/shell/notifications/toast"
 import { useServerSDK } from "@/runtime/server/client"
 import { useLanguage } from "@/runtime/i18n/language"
+import { Workflow } from "@opencode/schema/workflow"
 import { projectSettingsKey, useSettings } from "@/settings/model"
 import { useWorkspaceLocation } from "@/workspaces/location"
 import { sessionPermissionRequest, sessionFormRequest, sessionTreeIDs } from "@/session/requests/session-request-tree"
@@ -73,9 +74,12 @@ export function createSessionRequestModel() {
 
     const project = projectSettingsKey(serverSDK.scope, id ? data.session.get(id)?.projectID : undefined)
 
-    if (settings.permissions.autoApproves(project)) return
+    // Under auto-approve the only prompt left is the one a workflow forces for pushes and pull requests.
+    const forced = settings.permissions.autoApproves(project)
+      ? (item: PermissionRequest) => item.message === Workflow.OUTWARD
+      : undefined
 
-    return sessionPermissionRequest(data.session.list(), data.session.permission.list, id)
+    return sessionPermissionRequest(data.session.list(), data.session.permission.list, id, forced)
   })
 
   const blocked = createMemo(() => {

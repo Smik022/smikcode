@@ -29,6 +29,7 @@ export const clearDraft = Stored.clearDraft
 export const isOpen = Stored.isOpen
 export const writePending = Stored.writePending
 export const problems = Stored.problems
+export const OUTWARD = Stored.OUTWARD
 
 /** Session metadata key on a fresh-stage session: the run it belongs to and the result it reported. */
 export const CHILD = "workflow_child"
@@ -166,7 +167,7 @@ export function route(run: Run, outcome: "pass" | "fail", summary: string): Step
   const used = run.retries[current.id] ?? 0
   const limit = current.onFail?.max ?? DEFAULT_RETRIES
   if (used >= limit)
-    return { type: "blocked", run: ended("blocked", `Stage "${current.title}" failed ${used} times, so the workflow stopped.`) }
+    return { type: "blocked", run: ended("blocked", `Stage "${current.title}" failed ${used + 1} times, so the workflow stopped.`) }
   return go(current.onFail?.goto ?? current.id, { ...run.retries, [current.id]: used + 1 })
 }
 
